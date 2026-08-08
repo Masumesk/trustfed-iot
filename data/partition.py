@@ -63,13 +63,4 @@ def partition_dirichlet(
     )
 
 
-def create_client_subsets(dataset, client_indices):
 
-    clients = []
-
-    for indices in client_indices:
-        clients.append(
-            Subset(dataset, indices)
-        )
-
-    return clients
