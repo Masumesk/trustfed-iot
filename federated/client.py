@@ -1,6 +1,10 @@
+import copy
+
 import numpy as np
 from torch.utils.data import Subset
-
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 class Client:
     def __init__(
@@ -46,3 +50,43 @@ class Client:
             f"samples={self.num_samples}"
             f")"
         )
+
+    def local_train(self, model, epochs=1, batch_size=32, lr=0.01):
+        local_model = copy.deepcopy(model)
+
+        client_dataset = self.get_subset()
+
+        client_loader = DataLoader(
+            client_dataset,
+            batch_size=batch_size,
+            shuffle=True
+        )
+
+        criterion = nn.CrossEntropyLoss()
+
+        optimizer = torch.optim.SGD(
+            local_model.parameters(),
+            lr=lr
+        )
+
+        local_model.train()
+
+        total_loss = 0
+        for epoch in range(epochs):
+
+            for images, labels in client_loader:
+                optimizer.zero_grad()
+
+                outputs = local_model(images)
+
+                loss = criterion(outputs, labels)
+
+                loss.backward()
+
+                optimizer.step()
+
+                total_loss += loss.item()
+
+        average_loss = total_loss / (len(client_loader) * epochs)
+
+        return local_model, average_loss

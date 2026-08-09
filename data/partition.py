@@ -1,6 +1,8 @@
 import numpy as np
 from torch.utils.data import Subset
 
+# from main import indices
+
 
 def partition_dirichlet(
     dataset,
@@ -62,5 +64,21 @@ def partition_dirichlet(
         "with the requested minimum client size."
     )
 
+def partition_iid(
+        dataset,
+        num_clients=20,
+        seed=42
+):
+    rng=np.random.default_rng(seed)
 
+    indices=np.arange(len(dataset))
+    rng.shuffle(indices)
 
+    client_indices=np.array_split(
+        indices,num_clients
+    )
+
+    return [
+        client_indices[i].tolist()
+        for i in range(num_clients)
+    ]
