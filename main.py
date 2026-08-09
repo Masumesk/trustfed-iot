@@ -1,9 +1,12 @@
-from clustering.hellinger import hellinger_distance, build_distance_matrix
-from clustering.optics import optic_clustering,create_clusters,calculate_medoids,assign_noise
+# from clustering.hellinger import hellinger_distance, build_distance_matrix
+# from clustering.optics import optic_clustering,create_clusters,calculate_medoids,assign_noise
+# from clustering.cluster_analysis import calculate_cluster_samples_share,calculate_cluster_samples_counts_size
+
 
 from data import load_mnist
 from data.partition import partition_dirichlet
 from federated.client import Client
+from federated.server import Server
 
 
 train_dataset, test_dataset = load_mnist()
@@ -33,6 +36,11 @@ for client_id, indices in enumerate(client_indices):
     #     f"{len(indices)} samples"
     # )
 
+server = Server(clients)
+G = server.client_clustering(min_samples=2,xi=0.02,min_cluster_size=None,assignment_threshold=0.6)
+print(G)
+print(server.cluster_data_shares)
+
 # client = clients[0]
 
 # print(client)
@@ -51,39 +59,50 @@ for client_id, indices in enumerate(client_indices):
 #     distance
 # )
 
-distance_matrix = build_distance_matrix(clients)
+# distance_matrix = build_distance_matrix(clients)
 
-# print(distance_matrix)
-# print("Shape:", distance_matrix.shape)
+# # print(distance_matrix)
+# # print("Shape:", distance_matrix.shape)
 
-for client in clients:
-    print(client.histogram)
+# # for client in clients:
+#     # print(client.histogram)
 
-labels = optic_clustering(
-    distance_matrix,
-    min_samples=2,
-    xi=0.02,
-    min_cluster_size=None
-)
+# labels = optic_clustering(
+#     distance_matrix,
+#     min_samples=2,
+#     xi=0.02,
+#     min_cluster_size=None
+# )
 
-print("labels:")
-print(labels)
+# # print("labels:")
+# # print(labels)
 
-G, Q = create_clusters(labels)
+# G, Q = create_clusters(labels)
 
-print("clusters:")
-print(G)
+# # print("clusters:")
+# # print(G)
 
-print("Noise:")
-print(Q)
+# # print("Noise:")
+# # print(Q)
 
-medoids = calculate_medoids(G,distance_matrix)
+# medoids = calculate_medoids(G,distance_matrix)
 
-print("medoids:")
-print(medoids)
+# # print("medoids:")
+# # print(medoids)
 
-G_final = assign_noise(G,Q,medoids,distance_matrix,assignment_threshold=0.6)
+# G_final = assign_noise(G,Q,medoids,distance_matrix,assignment_threshold=0.6)
 
-print("all clusters:")
-print(G_final)
+# # print("all clusters:")
+# # print(G_final)
+
+# cluster_samples_counts = calculate_cluster_samples_counts_size(G_final,clients)
+
+# # Calculate the data share of each cluster
+# cluster_share = calculate_cluster_samples_share(cluster_samples_counts)
+
+# print("cluster counts:")
+# print(cluster_samples_counts)
+
+# print("cluster data shares:")
+# print(cluster_share)
 
