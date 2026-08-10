@@ -1,7 +1,7 @@
 from sklearn.cluster import OPTICS
 import numpy as np
 
-def optic_clustering(D,min_samples=3,xi=0.03,min_cluster_size=None):
+def optic_clustering(D, min_samples, xi, min_cluster_size):
      
     optics = OPTICS(
         min_samples=min_samples,
@@ -15,12 +15,13 @@ def optic_clustering(D,min_samples=3,xi=0.03,min_cluster_size=None):
     labels = optics.labels_
     return labels
 
-def create_clusters(labels):
+def create_clusters(labels, client_ids):
 
     G = {}  #clusters
     Q = []  #noise
 
-    for client_id, label in enumerate(labels):
+    for index, label in enumerate(labels):
+        client_id = client_ids[index]
         label = int(label)
         if label == -1:
             Q.append(client_id)
@@ -55,7 +56,7 @@ def calculate_medoids(G, D):
 
     return medoids
 
-def assign_noise(G,Q,medoids,D,assignment_threshold):
+def assign_noise(G, Q, medoids, D, assignment_threshold):
 
     G_final = {
         cluster_id: clients.copy()

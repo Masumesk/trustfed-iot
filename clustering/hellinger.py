@@ -11,17 +11,21 @@ def hellinger_distance(p, q):
         )
     )
 
-def build_distance_matrix(clients):
-    n = len(clients)
+def build_distance_matrix(client_infos,client_ids):
+
+    n = len(client_ids)
 
     matrix = np.zeros((n, n))
 
     for i in range(n):
         for j in range(i + 1, n):
 
+            client_i = client_infos[client_ids[i]]
+            client_j = client_infos[client_ids[j]]
+
             d = hellinger_distance(
-                clients[i].distribution,
-                clients[j].distribution
+                client_i["distribution"],
+                client_j["distribution"]
             )
 
             matrix[i, j] = d

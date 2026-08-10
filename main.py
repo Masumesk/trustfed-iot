@@ -31,78 +31,26 @@ for client_id, indices in enumerate(client_indices):
     )
 
     clients.append(client)
-    # print(
-    #     f"Client {client_id}: "
-    #     f"{len(indices)} samples"
-    # )
+    
 
-server = Server(clients)
-G = server.client_clustering(min_samples=2,xi=0.02,min_cluster_size=None,assignment_threshold=0.6)
+server = Server()
+
+client_infos = {}
+
+for client in clients:
+    info = client.get_client_distribution()
+    client_infos[client.client_id] = info
+
+server.receive_client_distributions(client_infos)
+
+G = server.client_clustering()
+
+print("\nClusters:")
 print(G)
+
+print("\nCluster sample counts:")
+print(server.cluster_samples_counts)
+
+print("\nCluster data shares:")
 print(server.cluster_data_shares)
-
-# client = clients[0]
-
-# print(client)
-# print(client.num_samples)
-# print(client.histogram)
-# print(client.distribution)
-
-# distance = hellinger_distance(
-#     clients[18].distribution,
-#     clients[2].distribution
-# )
-#
-# print(
-#     "Hellinger distance between "
-#     "Client 0 and Client 1:",
-#     distance
-# )
-
-# distance_matrix = build_distance_matrix(clients)
-
-# # print(distance_matrix)
-# # print("Shape:", distance_matrix.shape)
-
-# # for client in clients:
-#     # print(client.histogram)
-
-# labels = optic_clustering(
-#     distance_matrix,
-#     min_samples=2,
-#     xi=0.02,
-#     min_cluster_size=None
-# )
-
-# # print("labels:")
-# # print(labels)
-
-# G, Q = create_clusters(labels)
-
-# # print("clusters:")
-# # print(G)
-
-# # print("Noise:")
-# # print(Q)
-
-# medoids = calculate_medoids(G,distance_matrix)
-
-# # print("medoids:")
-# # print(medoids)
-
-# G_final = assign_noise(G,Q,medoids,distance_matrix,assignment_threshold=0.6)
-
-# # print("all clusters:")
-# # print(G_final)
-
-# cluster_samples_counts = calculate_cluster_samples_counts_size(G_final,clients)
-
-# # Calculate the data share of each cluster
-# cluster_share = calculate_cluster_samples_share(cluster_samples_counts)
-
-# print("cluster counts:")
-# print(cluster_samples_counts)
-
-# print("cluster data shares:")
-# print(cluster_share)
 

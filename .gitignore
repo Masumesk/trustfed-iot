@@ -302,6 +302,9 @@ pyrightconfig.json
 .history
 .ionide
 
+.vscode/
+.idea/
+
 datasets/**/*
 !datasets/**/
 !datasets/**/.gitkeep

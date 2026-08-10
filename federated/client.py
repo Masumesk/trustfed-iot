@@ -1,3 +1,4 @@
+from clustering.distribution import get_client_distribution
 import numpy as np
 from torch.utils.data import Subset
 
@@ -17,21 +18,16 @@ class Client:
 
         self.num_samples = len(self.indices)
 
-        self.histogram = self._compute_histogram(num_classes)
-        self.distribution = self._normalize_histogram()
+        self.distribution = get_client_distribution(self.dataset, self.indices, self.num_samples, num_classes,)
 
-    def _compute_histogram(self, num_classes):
-        targets = np.array(self.dataset.targets)
+    def get_client_distribution(self):
+        return {
+            "client_id": self.client_id,
+            "distribution": self.distribution, #pi
+            "num_samples": self.num_samples    #Ni
+        }
 
-        labels = targets[self.indices]
-
-        return np.bincount(
-            labels,
-            minlength=num_classes
-        )
-
-    def _normalize_histogram(self):
-        return self.histogram / self.num_samples
+    
 
     def get_subset(self):
         return Subset(

@@ -1,5 +1,5 @@
 
-def calculate_cluster_samples_counts_size(G, clients):
+def calculate_cluster_samples_counts_size(G, client_infos):
 
     cluster_samples_counts = {}
 
@@ -8,7 +8,7 @@ def calculate_cluster_samples_counts_size(G, clients):
         total_samples = 0
 
         for client_id in client_ids:
-            total_samples += clients[client_id].num_samples
+            total_samples += client_infos[client_id]["num_samples"]
 
         cluster_samples_counts[cluster_id] = total_samples
 
