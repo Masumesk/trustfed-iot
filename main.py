@@ -43,14 +43,17 @@ for client in clients:
 
 server.receive_client_distributions(client_infos)
 
-G = server.client_clustering()
+server.client_clustering()
 
-print("\nClusters:")
-print(G)
+print("Clusters:")
+print(server.clusters)
 
-print("\nCluster sample counts:")
+print("Cluster sample counts:")
 print(server.cluster_samples_counts)
 
-print("\nCluster data shares:")
+print("Cluster data shares:")
 print(server.cluster_data_shares)
 
+server.main_and_backup_client_selection()
+print(server.main_clients)
+print(server.backup_clients)
