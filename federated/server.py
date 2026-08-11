@@ -22,7 +22,24 @@ class Server:
         self.cluster_samples_counts = {}
         self.cluster_data_shares = {}
 
-        
+    def fedavg(self, local_models):
+        total_samples = sum(
+            client.num_samples
+            for client in self.clients
+        )
+
+        global_state = {}
+
+        for key in local_models[0].state_dict().keys():
+            global_state[key] = sum(
+                (client.num_samples / total_samples)
+                * local_model.state_dict()[key]
+                for client, local_model in zip(self.clients, local_models)
+            )
+
+        return global_state
+
+
     def client_clustering(self,min_samples=2,xi=0.02,min_cluster_size=None,assignment_threshold=0.6):
 
         #compute hellinger distances
