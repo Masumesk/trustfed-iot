@@ -2,11 +2,11 @@ import torch
 
 from federated.fedavg import fedavg
 from models.model import MNISTCNN
-from data.partition import partition_dirichlet
+from data.partition import partition_iid
 
 from data import load_mnist
 from federated.client import Client
-from federated.server import Server
+# from federated.server import Server
 from torch.utils.data import DataLoader
 
 
@@ -22,7 +22,7 @@ LEARNING_RATE = 0.01
 train_dataset, test_dataset = load_mnist()
 
 #Split data between clients
-client_indices=partition_dirichlet(
+client_indices=partition_iid(
     dataset=train_dataset,num_clients=NUM_CLIENTS)
 
 #Create clients
@@ -44,7 +44,7 @@ for client_id, indices in enumerate(client_indices):
     # )
 
 #Create server
-server = Server(clients)
+# server = Server(clients)
 
 #Create one global model
 global_model=MNISTCNN()
