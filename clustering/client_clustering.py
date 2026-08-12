@@ -53,6 +53,12 @@ def client_clustering(
         assignment_threshold=assignment_threshold
     )
 
+    #recalculate medoids for final clusters
+    medoids = calculate_medoids(
+        G_final,
+        distance_matrix
+    )
+
     #calculate cluster sample counts
     cluster_samples_counts = (
         calculate_cluster_samples_counts_size(
@@ -69,6 +75,7 @@ def client_clustering(
     )
 
     return (
+        distance_matrix,
         G_final,
         medoids,
         cluster_samples_counts,

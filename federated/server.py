@@ -1,5 +1,6 @@
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
+from evaluate_updates.final_evaluation import evaluate_trust
 
 class Server:
     def __init__(self):
@@ -22,6 +23,10 @@ class Server:
         self.main_clients = {}
         self.backup_clients = {}
 
+        #train
+        self.main_updates = {}
+        self.backup_updates = {}
+
     
     def receive_client_distributions(self, client_infos):
         
@@ -42,7 +47,8 @@ class Server:
         assignment_threshold=0.7
     ):
 
-        (   self.clusters,
+        (   self.distance_matrix,
+            self.clusters,
             self.medoids,
             self.cluster_samples_counts,
             self.cluster_data_shares
@@ -75,6 +81,44 @@ class Server:
             alpha,
             backup_ratio,
             random_ratio
+        )
+
+    def receive_client_update(
+        self,
+        client_id,
+        update
+    ):
+
+        for clients in self.main_clients.values():
+            if client_id in clients:
+
+                self.main_updates[client_id] = update
+                return
+
+        for clients in self.backup_clients.values():
+            if client_id in clients:
+
+                self.backup_updates[client_id] = update
+                return
+
+
+    def evaluate_client_trust(
+        self,
+        t_near=0.7,
+        lambda_trust=0.5
+    ):
+
+        self.trust_scores = evaluate_trust(
+            self.clusters,
+            self.main_clients,
+            self.backup_clients,
+            self.main_updates,
+            self.backup_updates,
+            self.trust_scores,
+            self.medoids,
+            self.distance_matrix,
+            t_near,
+            lambda_trust
         )
 
         
