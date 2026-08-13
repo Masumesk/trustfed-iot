@@ -1,6 +1,6 @@
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
-from evaluate_updates.final_evaluation import evaluate_trust
+from evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
 
 class Server:
     def __init__(self):
@@ -26,6 +26,9 @@ class Server:
         #train
         self.main_updates = {}
         self.backup_updates = {}
+
+        #aggregation
+        self.accepted_clients = {}
 
     
     def receive_client_distributions(self, client_infos):
@@ -102,24 +105,39 @@ class Server:
                 return
 
 
-    def evaluate_client_trust(
+    def trust_evaluation_and_backup_replacement(
         self,
         t_near=0.7,
-        lambda_trust=0.5
+        lambda_trust=0.5,
+        trust_threshold = { #به تعداد خوشه ها
+            0: 0.5,
+            1: 0.5,
+            2: 0.5,
+            3:0.5
+        },
+        alpha=0.5
     ):
 
-        self.trust_scores = evaluate_trust(
-            self.clusters,
-            self.main_clients,
-            self.backup_clients,
-            self.main_updates,
-            self.backup_updates,
-            self.trust_scores,
-            self.medoids,
-            self.distance_matrix,
-            t_near,
-            lambda_trust
+        self.trust_scores, self.accepted_clients = (
+            trust_evaluation_and_backup_replacement(
+                self.clusters,
+                self.main_clients,
+                self.backup_clients,
+                self.main_updates,
+                self.backup_updates,
+                self.trust_scores,
+                self.medoids,
+                self.distance_matrix,
+                t_near,
+                lambda_trust,
+                trust_threshold,
+                alpha,
+                self.client_infos,
+                self.cluster_samples_counts
+            )
         )
+
+       
 
         
 

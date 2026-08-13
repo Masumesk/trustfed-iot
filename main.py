@@ -129,7 +129,11 @@ for cluster_id, client_ids in server.backup_clients.items():
 print("Before:")
 print(server.trust_scores)
 
-server.evaluate_client_trust()
+server.trust_evaluation_and_backup_replacement()
 
 print("After:")
 print(server.trust_scores)
+
+print("Accepted clients")
+print(server.accepted_clients)
+

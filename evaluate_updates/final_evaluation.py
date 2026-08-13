@@ -1,18 +1,22 @@
-from evaluate_updates.compute_cluster_median import compute_median_update
-from evaluate_updates.normalized_distance import compute_A_i
-from evaluate_updates.update_trust_score import update_trust_score
+from evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
+from evaluate_updates.evaluate_clients import evaluate_clients
+from evaluate_updates.backup_replacement import replace_backup_clients
 
-def evaluate_trust(
+def trust_evaluation_and_backup_replacement(
     clusters,
-    main_clients,
-    backup_clients,
-    main_updates,
+    main_clients, #S_m
+    backup_clients, #S_b
+    main_updates, 
     backup_updates,
-    trust_scores,
+    trust_scores, 
     medoids,
-    distance_matrix,
-    t_near,
-    lambda_trust
+    distance_matrix, #D
+    t_near, #threshold for finding near clusters
+    lambda_trust, #weight of old trust score in trust score
+    trust_threshold, 
+    alpha, #weight of trust score in selection score
+    client_infos,
+    cluster_sample_counts #Ni
 ):
 
     cluster_updates = {}
@@ -31,9 +35,10 @@ def evaluate_trust(
         cluster_updates[cluster_id] = updates
 
 
-
+    
     for cluster_id in clusters:
 
+        #compute median 
         md, nearest_cluster = compute_median_update(
             cluster_id,
             cluster_updates,
@@ -42,6 +47,7 @@ def evaluate_trust(
             t_near
         )
 
+        #for clusters with just one update evalute updates base on nearest cluster
         if nearest_cluster is not None:
             
             nearest_updates = cluster_updates[nearest_cluster]
@@ -52,6 +58,7 @@ def evaluate_trust(
 
                 update = main_updates[client_id]
 
+                #normalized distance to cluster median
                 A_i = compute_A_i(
                     update,
                     md,
@@ -64,12 +71,11 @@ def evaluate_trust(
                     lambda_trust
                 )
 
-                trust_scores[client_id] = float(round(new_trust,2))
+                trust_scores[client_id] = round(float(new_trust),2)
 
 
-        
+            #update trust score for backups
             for client_id in backup_clients.get(cluster_id, []):
-
 
                 old_trust = trust_scores.get(client_id)
 
@@ -87,7 +93,26 @@ def evaluate_trust(
                     lambda_trust
                 )
 
-                trust_scores[client_id] = float(round(new_trust,2))
+                trust_scores[client_id] = round(float(new_trust),2)
 
+    valid_clients, suspicious_clients = evaluate_clients( #V_Gt #U_Gt
+        clusters,
+        main_clients,
+        trust_scores,
+        trust_threshold
+    )
 
-    return trust_scores
+    accepted_clients= replace_backup_clients(
+        clusters,
+        valid_clients,
+        suspicious_clients,
+        backup_clients,
+        trust_scores,
+        client_infos,
+        cluster_sample_counts,
+        trust_threshold,
+        alpha,
+    )
+
+    return trust_scores,accepted_clients
+    
