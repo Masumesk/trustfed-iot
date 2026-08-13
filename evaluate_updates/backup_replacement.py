@@ -44,7 +44,7 @@ def replace_backup_clients(
                     if( s_scores[client_id] > s_scores[best_backup] ):
                         best_backup = client_id
 
-                accepted_clients[cluster_id].append(best_backup, 1.0)
+                accepted_clients[cluster_id].append((best_backup, 1.0))
                 backups.remove(best_backup)
 
 

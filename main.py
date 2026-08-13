@@ -131,6 +131,12 @@ print(server.trust_scores)
 
 server.trust_evaluation_and_backup_replacement()
 
+global_model = server.aggregate(
+    global_model,
+    trim_ratio=0.2
+)
+
+
 print("After:")
 print(server.trust_scores)
 

@@ -1,7 +1,6 @@
 from evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
 from evaluate_updates.evaluate_clients import evaluate_clients
 from evaluate_updates.backup_replacement import replace_backup_clients
-
 def trust_evaluation_and_backup_replacement(
     clusters,
     main_clients, #S_m
@@ -48,6 +47,7 @@ def trust_evaluation_and_backup_replacement(
         )
 
         #for clusters with just one update evalute updates base on nearest cluster
+        # ToDo:change nearest_cluster name
         if nearest_cluster is not None:
             
             nearest_updates = cluster_updates[nearest_cluster]

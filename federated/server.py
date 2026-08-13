@@ -1,6 +1,10 @@
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
 from evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
+from aggregation.client_weights import compute_client_weights
+from aggregation.intra_cluster import aggregate_clusters
+from aggregation.inter_cluster import inter_cluster_aggregation
+from federated.model_update import apply_model_update
 
 class Server:
     def __init__(self):
@@ -29,6 +33,9 @@ class Server:
 
         #aggregation
         self.accepted_clients = {}
+        self.client_weights = {}
+        self.cluster_updates = {}
+        self.global_update = None
 
     
     def receive_client_distributions(self, client_infos):
@@ -137,7 +144,40 @@ class Server:
             )
         )
 
-       
+    def aggregate(
+            self,
+            global_model,
+            trim_ratio=0.2
+    ):
+
+        self.client_weights = compute_client_weights(
+            self.accepted_clients,
+            self.trust_scores,
+            self.client_infos
+        )
+
+        self.cluster_updates = aggregate_clusters(
+            self.clusters,
+            self.accepted_clients,
+            self.main_updates,
+            self.backup_updates,
+            self.client_weights,
+            trim_ratio
+        )
+
+        self.global_update = (
+            inter_cluster_aggregation(
+                self.cluster_updates,
+                self.cluster_data_shares
+            )
+        )
+
+        global_model = apply_model_update(
+            global_model,
+            self.global_update
+        )
+
+        return global_model
 
         
 
