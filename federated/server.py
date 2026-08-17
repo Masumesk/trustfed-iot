@@ -1,3 +1,6 @@
+import torch
+import  numpy as np
+
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
 from evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
@@ -37,6 +40,7 @@ class Server:
         self.client_weights = {}
         self.cluster_updates = {}
         self.global_update = None
+        self.model_relative_change = None
 
     
     def receive_client_distributions(self, client_infos):
@@ -204,6 +208,24 @@ class Server:
                 self.cluster_data_shares
             )
         )
+
+        with torch.no_grad():
+            previous_model_norm = torch.sqrt(sum(
+                    torch.sum(parameter.detach() ** 2)
+                    for parameter in global_model.parameters()
+                )
+            ).item()
+
+        update_norm = np.linalg.norm(
+            self.global_update
+        )
+
+
+        self.model_relative_change = (
+                update_norm
+                / (previous_model_norm + 1e-12)
+        )
+
 
         global_model = apply_model_update(
             global_model,

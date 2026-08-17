@@ -24,7 +24,7 @@ def compute_client_weights(
             data_weight = n_i / total_samples
             trust_weight = trust_scores[client_id]
 
-            raw_weight = data_weight * trust_weight
+            raw_weight = (data_weight * trust_weight* penalty)
 
 
             raw_weights[client_id] = raw_weight

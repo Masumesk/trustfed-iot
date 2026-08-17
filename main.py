@@ -7,8 +7,22 @@ from federated.client import Client
 from federated.server import Server
 from federated.model_update import compute_model_update
 from models.model import MNISTCNN
+from torch.utils.data import random_split
+from evaluate_updates.model_evaluation  import evaluate_validation
 
-train_dataset, test_dataset = load_mnist()
+full_train_dataset, test_dataset = load_mnist()
+
+# ToDO:Define them all Once
+train_size = 55000
+val_size = 5000
+
+train_dataset, val_dataset = random_split(
+    full_train_dataset,
+    [train_size, val_size],
+    generator=torch.Generator().manual_seed(42)
+)
+
+
 
 client_indices = partition_dirichlet(
     dataset=train_dataset,
@@ -17,6 +31,14 @@ client_indices = partition_dirichlet(
     min_samples=100,
     seed=42
 )
+# print("Train size:", len(train_dataset))
+# print("Validation size:", len(val_dataset))
+# print("Test size:", len(test_dataset))
+#
+# print(
+#     "Samples assigned to clients:",
+#     sum(len(indices) for indices in client_indices)
+# )
 
 clients = []
 
@@ -61,11 +83,16 @@ print(server.cluster_data_shares)
 
 global_model = MNISTCNN()
 
-NUM_ROUNDS = 2
+NUM_ROUNDS = 30
 LOCAL_EPOCHS = 1
 BATCH_SIZE = 32
 LEARNING_RATE = 0.01
+MODEL_CHANGE_THRESHOLD = 0.01
+VAL_LOSS_CHANGE_THRESHOLD = 0.01
+PATIENCE = 3
 
+previous_val_loss = None
+stable_checks = 0
 
 for round_id in range(1, NUM_ROUNDS + 1):
 
@@ -179,6 +206,58 @@ for round_id in range(1, NUM_ROUNDS + 1):
         global_model,
         trim_ratio=0.2
     )
+
+    print(
+        f"Model relative change: "
+        f"{server.model_relative_change:.8f}"
+    )
+
+
+
+    if server.model_relative_change < MODEL_CHANGE_THRESHOLD:
+
+        val_loss, val_accuracy = evaluate_validation(
+            global_model,
+            val_dataset
+        )
+
+        print(
+            f"Validation Loss: {val_loss:.6f} | "
+            f"Validation Accuracy: {val_accuracy:.4f}"
+        )
+
+        if previous_val_loss is not None:
+
+            val_loss_change = abs(
+                val_loss - previous_val_loss
+            )
+
+            print(
+                f"Validation Loss Change: "
+                f"{val_loss_change:.6f}"
+            )
+
+            if val_loss_change < VAL_LOSS_CHANGE_THRESHOLD:
+                stable_checks += 1
+            else:
+                stable_checks = 0
+            print(
+                f"Stable checks: "
+                f"{stable_checks}/{PATIENCE}"
+            )
+
+
+        previous_val_loss = val_loss
+
+        if stable_checks >= PATIENCE:
+            print(
+                "Training stopped: "
+                "convergence criteria satisfied."
+            )
+            break
+    else:
+        stable_checks = 0
+        previous_val_loss = None
 
     print(f"Round {round_id} completed.")
     print("---------")

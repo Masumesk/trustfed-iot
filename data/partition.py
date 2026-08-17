@@ -16,7 +16,13 @@ def partition_dirichlet(
 
     rng = np.random.default_rng(seed)
 
-    targets = np.array(dataset.targets)
+
+    if isinstance(dataset, Subset):
+        targets = np.array(dataset.dataset.targets)[
+            dataset.indices
+        ]
+    else:
+        targets = np.array(dataset.targets)
     num_classes = len(np.unique(targets))
 
     for _ in range(100):

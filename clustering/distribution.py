@@ -1,9 +1,15 @@
 #client
 import numpy as np
+from torch.utils.data import Subset
 
 def compute_histogram(dataset, indices, num_classes=10):
+    if isinstance(dataset, Subset):
+        targets = np.array(dataset.dataset.targets)[
+            dataset.indices
+        ]
+    else:
+        targets = np.array(dataset.targets)
 
-    targets = np.array(dataset.targets)
     labels = targets[indices]
 
     histogram= np.bincount(
