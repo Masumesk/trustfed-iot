@@ -14,11 +14,12 @@ def main_and_backup_client_selection(
     M, #main clients number
     alpha, #trust score weight in selection score
     backup_ratio, #ρ
-    random_ratio
+    random_ratio,
+    seed
 ):
 
     
-    random.seed(2) #بعدا طبق تعداد دور آموزش درست کنیم**
+    rng = random.Random(42 + seed) 
 
     m_ks = calculate_cluster_client_share(clusters, cluster_data_shares, M) #number of main clients in each cluster
 
@@ -42,7 +43,7 @@ def main_and_backup_client_selection(
 
         sorted_clients = sorted(client_ids, key=selection_scores.get, reverse=True)
 
-        random_selected = random.sample(client_ids, int(m_k*random_ratio))
+        random_selected = rng.sample(client_ids, int(m_k*random_ratio))
         selected = list(random_selected)
 
         if ( m_k - len(selected) > 0 ):

@@ -30,6 +30,7 @@ class Server:
         #train
         self.main_updates = {}
         self.backup_updates = {}
+        self.current_round = 0
 
         #aggregation
         self.accepted_clients = {}
@@ -71,11 +72,11 @@ class Server:
 
         
 
-    def main_and_backup_client_selection( #در هر دور آموزش 
+    def main_and_backup_client_selection( 
         self,
         alpha=0.5,
         backup_ratio=0.5,
-        random_ratio=0.5
+        random_ratio=0.5,
     ):
 
         (
@@ -90,7 +91,8 @@ class Server:
             self.M,
             alpha,
             backup_ratio,
-            random_ratio
+            random_ratio,
+            self.current_round
         )
 
     def receive_client_update(
@@ -143,6 +145,37 @@ class Server:
                 self.cluster_samples_counts
             )
         )
+
+    def start_round(self, round_id):
+
+        self.current_round = round_id
+
+        self.main_clients = {}
+        self.backup_clients = {}
+
+        self.main_updates = {}
+        self.backup_updates = {}
+
+        self.accepted_clients = {}
+        self.client_weights = {}
+        self.cluster_updates = {}
+        self.global_update = None
+
+    def create_training_package(
+        self,
+        global_model,
+        local_epochs,
+        batch_size,
+        learning_rate
+    ):
+
+        return {
+            "global_model": global_model,
+            "round_id": self.current_round,
+            "local_epochs": local_epochs,
+            "batch_size": batch_size,
+            "learning_rate": learning_rate
+        }
 
     def aggregate(
             self,

@@ -23,6 +23,8 @@ class Client:
 
         self.distribution = get_client_distribution(self.dataset, self.indices, self.num_samples, num_classes,)
 
+        self.training_package= None
+
     def get_client_distribution(self):
         return {
             "client_id": self.client_id,
@@ -39,7 +41,7 @@ class Client:
         )
 
 
-    def local_train(self, model, epochs=1, batch_size=32, lr=0.01):
+    def local_train(self, model, epochs, batch_size, lr):
         local_model = copy.deepcopy(model)
 
         client_dataset = self.get_subset()
@@ -81,6 +83,20 @@ class Client:
         average_loss = total_loss / num_batches
 
         return local_model, average_loss
+
+    def receive_training_package(self, package):
+        self.training_package = package
+
+
+    def train_received_package(self):
+
+        package = self.training_package
+        return self.local_train(
+            model=package["global_model"],
+            epochs=package["local_epochs"],
+            batch_size=package["batch_size"],
+            lr=package["learning_rate"]
+        )
 
     def __repr__(self):
         return (

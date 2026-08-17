@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from data import load_mnist
 from data.partition import partition_dirichlet
@@ -57,89 +58,129 @@ print(server.cluster_samples_counts)
 print("Cluster data shares:")
 print(server.cluster_data_shares)
 
-server.main_and_backup_client_selection()
-print(server.main_clients)
-print(server.backup_clients)
 
 global_model = MNISTCNN()
 
-
-for cluster_id, client_ids in server.main_clients.items():
-
-    for client_id in client_ids:
-
-        client = clients_by_id[client_id]
-
-        local_model, loss = client.local_train(
-            model=global_model,
-            epochs=1,
-            batch_size=32,
-            lr=0.01
-        )
-
-        update = compute_model_update(
-            global_model,
-            local_model
-        )
-
-        server.receive_client_update(
-            client_id,
-            update
-        )
-
-        print(
-            f"MAIN | "
-            f"Cluster {cluster_id} | "
-            f"Client {client_id} | "
-            f"Loss = {loss:.4f} | "
-            f"Update size = {update.shape}"
-        )
+NUM_ROUNDS = 2
+LOCAL_EPOCHS = 1
+BATCH_SIZE = 32
+LEARNING_RATE = 0.01
 
 
-for cluster_id, client_ids in server.backup_clients.items():
+for round_id in range(1, NUM_ROUNDS + 1):
 
-    for client_id in client_ids:
-        client = clients_by_id[client_id]
+    print(f"round {round_id}")
 
-        local_model, loss = client.local_train(
-            model=global_model,
-            epochs=1,
-            batch_size=32,
-            lr=0.01
-        )
+   
+    server.start_round(round_id)
+    server.main_and_backup_client_selection()
 
-        update = compute_model_update(
-            global_model,
-            local_model
-        )
+    print("Main clients:")
+    print(server.main_clients)
 
-        server.receive_client_update(
-            client_id,
-            update
-        )
-
-        print(
-            f"BACKUP | "
-            f"Cluster {cluster_id} | "
-            f"Client {client_id} | "
-            f"Loss = {loss:.4f} | "
-            f"Update size = {update.shape}"
-        )
-
-print("Before:")
-print(server.trust_scores)
-
-server.trust_evaluation_and_backup_replacement()
-
-global_model = server.aggregate(
-    global_model,
-    trim_ratio=0.2
-)
+    print("Backup clients:")
+    print(server.backup_clients)
 
 
-print("After:")
-print(server.trust_scores)
+    training_package = server.create_training_package(
+        global_model=global_model,
+        local_epochs=LOCAL_EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LEARNING_RATE
+    )
 
-print("Accepted clients")
-print(server.accepted_clients)
+
+    for cluster_id, client_ids in server.main_clients.items():
+
+        for client_id in client_ids:
+
+            client = clients_by_id[client_id]
+
+            client.receive_training_package(training_package)
+
+
+    for cluster_id, client_ids in server.backup_clients.items():
+
+        for client_id in client_ids:
+
+            client = clients_by_id[client_id]
+
+            client.receive_training_package(training_package)
+
+
+    
+    for cluster_id, client_ids in server.main_clients.items():
+
+        for client_id in client_ids:
+
+            client = clients_by_id[client_id]
+
+            local_model, loss = (client.train_received_package())
+
+            update = compute_model_update(
+                global_model,
+                local_model
+            )
+
+            server.receive_client_update(
+                client_id,
+                update
+            )
+
+            print(
+                f"MAIN | "
+                f"Round {round_id} | "
+                f"Cluster {cluster_id} | "
+                f"Client {client_id} | "
+                f"Loss = {loss:.4f}"
+            )
+
+
+    for cluster_id, client_ids in server.backup_clients.items():
+
+        for client_id in client_ids:
+
+            client = clients_by_id[client_id]
+
+            local_model, loss = (client.train_received_package())
+
+            update = compute_model_update(
+                global_model,
+                local_model
+            )
+
+            server.receive_client_update(
+                client_id,
+                update
+            )
+
+            print(
+                f"BACKUP | "
+                f"Round {round_id} | "
+                f"Cluster {cluster_id} | "
+                f"Client {client_id} | "
+                f"Loss = {loss:.4f}"
+            )
+
+
+    print("Trust scores before evaluation:")
+    print(server.trust_scores)
+
+    server.trust_evaluation_and_backup_replacement()
+
+    print("Trust scores after evaluation:")
+    print(server.trust_scores)
+
+    print("Accepted clients:")
+    print(server.accepted_clients)
+
+
+    global_model = server.aggregate(
+        global_model,
+        trim_ratio=0.2
+    )
+
+    print(f"Round {round_id} completed.")
+    print("---------")
+    
 
