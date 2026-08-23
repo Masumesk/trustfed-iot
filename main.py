@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from attacks.sign_flip import sign_flip_attack
+from attacks.attack_manager import apply_attack
 from data import load_mnist
 from data.partition import partition_dirichlet
 from federated.client import Client
@@ -41,9 +41,21 @@ client_indices = partition_dirichlet(
 #     sum(len(indices) for indices in client_indices)
 # )
 
+ATTACK_TYPE = "scaling"
 clients = []
-malicious_ids = set()
+MALICIOUS_RATIO = 0.2
 
+num_malicious = int(
+    30 * MALICIOUS_RATIO
+)
+
+malicious_ids = set(
+    np.random.choice(
+        30,
+        num_malicious,
+        replace=False
+    )
+)
 for client_id, indices in enumerate(client_indices):
     client = Client(
         client_id=client_id,
@@ -51,7 +63,7 @@ for client_id, indices in enumerate(client_indices):
         indices=indices,
         num_classes=10,
         malicious=(client_id in malicious_ids),
-        attack=sign_flip_attack
+        attack=ATTACK_TYPE
     )
 
     clients.append(client)
@@ -91,7 +103,7 @@ print(server.cluster_data_shares)
 
 global_model = MNISTCNN()
 
-NUM_ROUNDS = 15
+NUM_ROUNDS = 5
 LOCAL_EPOCHS = 1
 BATCH_SIZE = 32
 LEARNING_RATE = 0.01
@@ -158,8 +170,10 @@ for round_id in range(1, NUM_ROUNDS + 1):
             )
 
             if client.malicious:
-                print(f"ATTACK from client {client_id}")
-                update = client.attack(update)
+                update = apply_attack(
+                    update,
+                    ATTACK_TYPE
+                )
 
             server.receive_client_update(
                 client_id,
@@ -188,10 +202,11 @@ for round_id in range(1, NUM_ROUNDS + 1):
                 local_model
             )
 
-
             if client.malicious:
-                print(f"ATTACK from client {client_id}")
-                update = client.attack(update)
+                update = apply_attack(
+                    update,
+                    ATTACK_TYPE
+                )
 
             server.receive_client_update(
                 client_id,

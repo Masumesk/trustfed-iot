@@ -1,6 +1,6 @@
 import numpy as np
 
 
-def sign_flip_attack(update, scale=5):
+def sign_flip_attack(update):
 
-    return -scale * update
+    return -update
