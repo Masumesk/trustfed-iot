@@ -12,7 +12,9 @@ class Client:
         client_id,
         dataset,
         indices,
-        num_classes=10
+        num_classes=10,
+        malicious = False,
+        attack = None
     ):
         self.client_id = client_id
 
@@ -24,6 +26,9 @@ class Client:
         self.distribution = get_client_distribution(self.dataset, self.indices, self.num_samples, num_classes,)
 
         self.training_package= None
+
+        self.malicious = malicious
+        self.attack = attack
 
     def get_client_distribution(self):
         return {
