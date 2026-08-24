@@ -1,6 +1,7 @@
 from clustering.distribution import get_client_distribution
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
+from attacks.label_flip import label_flip_attack
 
 import copy
 import torch
@@ -14,7 +15,7 @@ class Client:
         indices,
         num_classes=10,
         malicious = False,
-        attack = None
+        attack_type=None,
     ):
         self.client_id = client_id
 
@@ -28,7 +29,8 @@ class Client:
         self.training_package= None
 
         self.malicious = malicious
-        self.attack = attack
+        self.attack_type = attack_type  
+        self.num_classes = num_classes
 
     def get_client_distribution(self):
         return {
@@ -72,6 +74,10 @@ class Client:
         for epoch in range(epochs):
 
             for images, labels in client_loader:
+
+                if self.malicious and self.attack_type == "label_flip":
+                    labels = label_flip_attack(labels, self.num_classes)
+
                 optimizer.zero_grad()
 
                 outputs = local_model(images)

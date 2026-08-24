@@ -41,9 +41,10 @@ client_indices = partition_dirichlet(
 #     sum(len(indices) for indices in client_indices)
 # )
 
-ATTACK_TYPE = None
+ATTACK_TYPE = "gaussian"
 clients = []
 MALICIOUS_RATIO = 0.2
+np.random.seed(42)
 
 num_malicious = int(
     30 * MALICIOUS_RATIO
@@ -63,7 +64,7 @@ for client_id, indices in enumerate(client_indices):
         indices=indices,
         num_classes=10,
         malicious=(client_id in malicious_ids),
-        attack=ATTACK_TYPE
+        attack_type=ATTACK_TYPE
     )
 
     clients.append(client)
@@ -115,6 +116,7 @@ LEARNING_RATE = 0.01
 MODEL_CHANGE_THRESHOLD = 0.01
 VAL_LOSS_CHANGE_THRESHOLD = 0.01
 PATIENCE = 3
+
 
 previous_val_loss = None
 stable_checks = 0
