@@ -3,11 +3,14 @@ import  numpy as np
 
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
+from evaluate.global_evaluate import evaluate_model
 from evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
 from aggregation.client_weights import compute_client_weights
 from aggregation.intra_cluster import aggregate_clusters
 from aggregation.inter_cluster import inter_cluster_aggregation
 from federated.model_update import apply_model_update
+from models.model import MNISTCNN
+
 
 class Server:
     def __init__(self):
@@ -45,6 +48,12 @@ class Server:
         self.cluster_updates = {}
         self.global_update = None
         self.model_relative_change = None
+
+        # global model
+        self.global_model = MNISTCNN()
+
+        #evaluation
+        self.test_dataset = None
 
     
     def receive_client_distributions(self, client_infos):
@@ -126,6 +135,7 @@ class Server:
                 return
 
 
+
     def trust_evaluation_and_backup_replacement(
         self,
         t_near=0.7,
@@ -175,14 +185,13 @@ class Server:
 
     def create_training_package(
         self,
-        global_model,
         local_epochs,
         batch_size,
         learning_rate
     ):
 
         return {
-            "global_model": global_model,
+            "global_model": self.global_model,
             "round_id": self.current_round,
             "local_epochs": local_epochs,
             "batch_size": batch_size,
@@ -191,7 +200,6 @@ class Server:
 
     def aggregate(
             self,
-            global_model,
             trim_ratio=0.2
     ):
 
@@ -218,9 +226,13 @@ class Server:
         )
 
         with torch.no_grad():
-            previous_model_norm = torch.sqrt(sum(
-                    torch.sum(parameter.detach() ** 2)
-                    for parameter in global_model.parameters()
+            previous_model_norm = torch.sqrt(
+                sum(
+                    torch.sum(
+                        parameter.detach() ** 2
+                    )
+                    for parameter
+                    in self.global_model.parameters()
                 )
             ).item()
 
@@ -235,13 +247,29 @@ class Server:
         )
 
 
-        global_model = apply_model_update(
-            global_model,
+        self.global_model = apply_model_update(
+            self.global_model,
             self.global_update
         )
 
-        return global_model
+        return self.global_model
 
+
+
+
+    def get_model_state(self):
+
+        return {
+            k: v.cpu().tolist()
+            for k, v in self.global_model.state_dict().items()
+        }
+
+    def evaluate(self):
+
+        return evaluate_model(
+            self.global_model,
+            self.test_dataset
+        )
         
 
     

@@ -35,7 +35,7 @@ class Client:
     def get_client_distribution(self):
         return {
             "client_id": self.client_id,
-            "distribution": self.distribution, #pi
+            "distribution": self.distribution.tolist(), #pi
             "num_samples": self.num_samples    #Ni
         }
 

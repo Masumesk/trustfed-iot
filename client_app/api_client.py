@@ -1,0 +1,57 @@
+import requests
+import torch
+from models.model import MNISTCNN
+
+SERVER_URL = "http://127.0.0.1:8000"
+
+
+def register_client(client_info):
+
+    response = requests.post(
+        f"{SERVER_URL}/register",
+        json=client_info
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_training_package(client_id):
+
+    response = requests.get(
+        f"{SERVER_URL}/model/{client_id}"
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def load_global_model(package):
+
+    model = MNISTCNN()
+
+    state_dict = {
+        k: torch.tensor(v)
+        for k, v in package["global_model"].items()
+    }
+
+    model.load_state_dict(state_dict)
+
+    return model
+
+
+def send_update(client_id, update):
+
+    response = requests.post(
+        f"{SERVER_URL}/update",
+        json={
+            "client_id": client_id,
+            "update": update.tolist()
+        }
+    )
+
+    response.raise_for_status()
+
+    return response.json()
