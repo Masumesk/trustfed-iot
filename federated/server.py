@@ -14,6 +14,10 @@ class Server:
 
         self.client_infos = {}
         self.N = 0
+        # self.client_ids = list(
+        #     self.client_infos.keys()
+        # )
+        self.client_to_index = {} #index
 
         self.trust_scores = {}
 
@@ -46,6 +50,10 @@ class Server:
     def receive_client_distributions(self, client_infos):
         
         self.client_infos = client_infos 
+        self.client_to_index = { #index
+            cid:i
+            for i,cid in enumerate(self.client_infos.keys())
+        }
         self.N=len(self.client_infos)
 
         for client_id in client_infos:
@@ -122,14 +130,13 @@ class Server:
         self,
         t_near=0.7,
         lambda_trust=0.5,
-        trust_threshold = { #به تعداد خوشه ها
-            0: 0.5,
-            1: 0.5,
-            2: 0.5,
-            3:0.5
-        },
         alpha=0.5
     ):
+       
+        trust_threshold = {
+            cluster_id: 0.5
+            for cluster_id in self.clusters.keys()
+        }
 
         self.trust_scores, self.accepted_clients = (
             trust_evaluation_and_backup_replacement(
@@ -146,7 +153,8 @@ class Server:
                 trust_threshold,
                 alpha,
                 self.client_infos,
-                self.cluster_samples_counts
+                self.cluster_samples_counts,
+                self.client_to_index
             )
         )
 

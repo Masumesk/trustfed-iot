@@ -1,10 +1,10 @@
 import numpy as np
 
-def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix, t_near):
+def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix, t_near,client_to_index):
     
     updates = cluster_updates.get(cluster_id, [])
 
-    if len(updates) >= 2:
+    if len(updates) >= 3:
 
         md = np.median(
             np.stack(updates),
@@ -24,7 +24,10 @@ def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix,
 
             candidate_medoid = medoids[candidate_id]
 
-            distance = distance_matrix[cur_md,candidate_medoid]
+            i = client_to_index[cur_md] #index
+            j = client_to_index[candidate_medoid]
+
+            distance = distance_matrix[i,j]
 
             if distance < min_dist:
                 min_dist = distance

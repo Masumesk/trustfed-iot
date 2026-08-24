@@ -1,6 +1,7 @@
 from evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
 from evaluate_updates.evaluate_clients import evaluate_clients
 from evaluate_updates.backup_replacement import replace_backup_clients
+
 def trust_evaluation_and_backup_replacement(
     clusters,
     main_clients, #S_m
@@ -15,7 +16,8 @@ def trust_evaluation_and_backup_replacement(
     trust_threshold, 
     alpha, #weight of trust score in selection score
     client_infos,
-    cluster_sample_counts #Ni
+    cluster_sample_counts, #Ni
+    client_to_index #index
 ):
 
     cluster_updates = {}
@@ -43,7 +45,8 @@ def trust_evaluation_and_backup_replacement(
             cluster_updates,
             medoids,
             distance_matrix,
-            t_near
+            t_near,
+            client_to_index
         )
 
         #for clusters with just one update evalute updates base on nearest cluster

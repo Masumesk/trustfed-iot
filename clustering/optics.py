@@ -2,6 +2,8 @@ from sklearn.cluster import OPTICS
 import numpy as np
 
 def optic_clustering(D, min_samples, xi, min_cluster_size):
+
+    
      
     optics = OPTICS(
         min_samples=min_samples,
@@ -33,60 +35,95 @@ def create_clusters(labels, client_ids):
 
     return G , Q
 
-def calculate_medoids(G, D):
+def calculate_medoids(G, D, client_to_index):
 
     medoids = {}
 
     for cluster_id, clients in G.items():
+
         if len(clients) == 1:
             medoids[cluster_id] = clients[0]
 
         else:
+
             min_dist = float("inf")
 
             for client_i in clients:
+
                 total_dist = 0.0
 
                 for client_j in clients:
-                    total_dist += D[client_i,client_j]
+
+                    i = client_to_index[client_i] #index
+                    j = client_to_index[client_j]
+
+                    total_dist += D[i, j]
+
 
                 if total_dist < min_dist:
+
                     min_dist = total_dist
                     medoids[cluster_id] = client_i
 
     return medoids
 
-def assign_noise(G, Q, medoids, D, assignment_threshold):
+
+def assign_noise(
+        G,
+        Q,
+        medoids,
+        D,
+        assignment_threshold,
+        client_to_index
+):
 
     G_final = {
         cluster_id: clients.copy()
         for cluster_id, clients in G.items()
     }
 
+
     if len(G_final) > 0:
         next_cluster_id = max(G_final.keys()) + 1
     else:
         next_cluster_id = 0
 
+
     for noise_client in Q:
-        cluster_k_i = None #nearest cluster
+
+        cluster_k_i = None
         min_dist = float("inf")
+
 
         for cluster_id, medoid in medoids.items():
 
-            dist = D[noise_client, medoid]
+
+            i = client_to_index[noise_client] #index
+            j = client_to_index[medoid]
+
+
+            dist = D[i, j]
+
 
             if dist <= min_dist:
+
                 min_dist = dist
                 cluster_k_i = cluster_id
 
-        if (cluster_k_i is not None and min_dist <= assignment_threshold):
+
+
+        if (
+            cluster_k_i is not None 
+            and min_dist <= assignment_threshold
+        ):
+
             G_final[cluster_k_i].append(noise_client)
 
+
         else:
+
             G_final[next_cluster_id] = [noise_client]
             next_cluster_id += 1
 
-    return G_final
 
-            
+    return G_final

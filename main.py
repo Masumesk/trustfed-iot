@@ -41,7 +41,7 @@ client_indices = partition_dirichlet(
 #     sum(len(indices) for indices in client_indices)
 # )
 
-ATTACK_TYPE = "scaling"
+ATTACK_TYPE = None
 clients = []
 MALICIOUS_RATIO = 0.2
 
@@ -67,6 +67,11 @@ for client_id, indices in enumerate(client_indices):
     )
 
     clients.append(client)
+
+client_id_to_client = {
+    client.client_id: client
+    for client in clients
+}
 
 clients_by_id = {
     client.client_id: client

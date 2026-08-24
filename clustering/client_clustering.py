@@ -23,6 +23,10 @@ def client_clustering(
 ):
 
     client_ids = list(client_infos.keys())
+    client_to_index = { #index
+        cid: idx
+        for idx, cid in enumerate(client_ids)
+    }
 
     #compute Hellinger distance matrix
     distance_matrix = build_distance_matrix(client_infos, client_ids)
@@ -41,7 +45,8 @@ def client_clustering(
     #calculate cluster medoids
     medoids = calculate_medoids(
         G,
-        distance_matrix
+        distance_matrix,
+        client_to_index
     )
 
     #assign noise clients
@@ -50,13 +55,15 @@ def client_clustering(
         Q,
         medoids,
         distance_matrix,
-        assignment_threshold=assignment_threshold
+        assignment_threshold=assignment_threshold,
+        client_to_index=client_to_index
     )
 
     #recalculate medoids for final clusters
     medoids = calculate_medoids(
         G_final,
-        distance_matrix
+        distance_matrix,
+        client_to_index
     )
 
     #calculate cluster sample counts
