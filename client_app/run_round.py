@@ -23,7 +23,7 @@ from config import (
 from data import load_mnist
 from data.partition import partition_dirichlet
 from federated.client import Client
-from federated.model_update import compute_model_update
+from evaluation.evaluate_updates.model_update import compute_model_update
 
 
 # Arguments

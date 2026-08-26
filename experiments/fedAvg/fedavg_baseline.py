@@ -1,6 +1,6 @@
 import torch
 
-from federated.fedavg import fedavg
+from experiments.fedAvg.fedavg import fedavg
 from models.model import MNISTCNN
 from data.partition import partition_iid
 

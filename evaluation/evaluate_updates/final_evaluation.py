@@ -1,6 +1,6 @@
-from evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
-from evaluate_updates.evaluate_clients import evaluate_clients
-from evaluate_updates.backup_replacement import replace_backup_clients
+from evaluation.evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
+from evaluation.evaluate_updates.evaluate_clients import evaluate_clients
+from evaluation.evaluate_updates.backup_replacement import replace_backup_clients
 
 def trust_evaluation_and_backup_replacement(
     clusters,

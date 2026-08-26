@@ -16,9 +16,9 @@ from config import (
     SELECTION_SEED,
 )
 from data import load_mnist
-from evaluate.global_evaluate import evaluate_model
+from evaluation.global_evaluate import evaluate_model
 from experiments.multi_Krum.multi_Krum import multi_krum
-from federated.model_update import apply_model_update
+from evaluation.evaluate_updates.model_update import apply_model_update
 from models.model import MNISTCNN
 
 app = FastAPI()

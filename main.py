@@ -1,312 +1,366 @@
-import numpy as np
-import torch
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 
-from attacks.attack_manager import apply_attack
-from data import load_mnist
-from data.partition import partition_dirichlet
-from federated.client import Client
-from federated.server import Server
-from federated.model_update import compute_model_update
-from models.model import MNISTCNN
-from torch.utils.data import random_split
-from evaluate_updates.model_evaluation  import evaluate_validation
+import requests
 
-full_train_dataset, test_dataset = load_mnist()
+from config import (MODEL_CHANGE_THRESHOLD, NUM_ROUNDS, PATIENCE,
+                    VAL_LOSS_CHANGE_THRESHOLD, get_malicious_ids)
 
-# ToDO:Define them all Once
-train_size = 55000
-val_size = 5000
-
-train_dataset, val_dataset = random_split(
-    full_train_dataset,
-    [train_size, val_size],
-    generator=torch.Generator().manual_seed(42)
-)
-
-
-
-client_indices = partition_dirichlet(
-    dataset=train_dataset,
-    num_clients=30,
-    alpha=0.3,
-    min_samples=100,
-    seed=42
-)
-# print("Train size:", len(train_dataset))
-# print("Validation size:", len(val_dataset))
-# print("Test size:", len(test_dataset))
-#
-# print(
-#     "Samples assigned to clients:",
-#     sum(len(indices) for indices in client_indices)
-# )
-
-ATTACK_TYPE = "gaussian"
-clients = []
-MALICIOUS_RATIO = 0.2
-np.random.seed(42)
-
-num_malicious = int(
-    30 * MALICIOUS_RATIO
-)
-
-malicious_ids = set(
-    np.random.choice(
-        30,
-        num_malicious,
-        replace=False
-    )
-)
-for client_id, indices in enumerate(client_indices):
-    client = Client(
-        client_id=client_id,
-        dataset=train_dataset,
-        indices=indices,
-        num_classes=10,
-        malicious=(client_id in malicious_ids),
-        attack_type=ATTACK_TYPE
-    )
-
-    clients.append(client)
-
-client_id_to_client = {
-    client.client_id: client
-    for client in clients
-}
-
-clients_by_id = {
-    client.client_id: client
-    for client in clients
-}
-
-for client in clients:
-    print(
-        client.client_id,
-        client.malicious
-    )
-
-server = Server()
-
-client_infos = {}
-
-for client in clients:
-    info = client.get_client_distribution()
-    client_infos[client.client_id] = info
-
-server.receive_client_distributions(client_infos)
-
-server.client_clustering()
-
-print("Clusters:")
-print(server.clusters)
-
-print("Cluster sample counts:")
-print(server.cluster_samples_counts)
-
-print("Cluster data shares:")
-print(server.cluster_data_shares)
-
-
-global_model = MNISTCNN()
-
-NUM_ROUNDS = 5
-LOCAL_EPOCHS = 1
-BATCH_SIZE = 32
-LEARNING_RATE = 0.01
-MODEL_CHANGE_THRESHOLD = 0.01
-VAL_LOSS_CHANGE_THRESHOLD = 0.01
-PATIENCE = 3
+SERVER = "http://127.0.0.1:8000"
 
 
 previous_val_loss = None
+
 stable_checks = 0
 
-for round_id in range(1, NUM_ROUNDS + 1):
 
-    print(f"round {round_id}")
-
-   
-    server.start_round(round_id)
-    server.main_and_backup_client_selection()
-
-    print("Main clients:")
-    print(server.main_clients)
-
-    print("Backup clients:")
-    print(server.backup_clients)
+malicious_ids = get_malicious_ids()
 
 
-    training_package = server.create_training_package(
-        global_model=global_model,
-        local_epochs=LOCAL_EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LEARNING_RATE
-    )
+print(
+    "Malicious clients:",
+    sorted(malicious_ids)
+)
 
 
-    for cluster_id, client_ids in server.main_clients.items():
+# Run one selected client
 
-        for client_id in client_ids:
-
-            client = clients_by_id[client_id]
-
-            client.receive_training_package(training_package)
-
-
-    for cluster_id, client_ids in server.backup_clients.items():
-
-        for client_id in client_ids:
-
-            client = clients_by_id[client_id]
-
-            client.receive_training_package(training_package)
-
-
-    
-    for cluster_id, client_ids in server.main_clients.items():
-
-        for client_id in client_ids:
-
-            client = clients_by_id[client_id]
-
-            local_model, loss = (client.train_received_package())
-
-            update = compute_model_update(
-                global_model,
-                local_model
-            )
-
-            if client.malicious:
-                update = apply_attack(
-                    update,
-                    ATTACK_TYPE
-                )
-
-            server.receive_client_update(
-                client_id,
-                update
-            )
-
-            print(
-                f"MAIN | "
-                f"Round {round_id} | "
-                f"Cluster {cluster_id} | "
-                f"Client {client_id} | "
-                f"Loss = {loss:.4f}"
-            )
-
-
-    for cluster_id, client_ids in server.backup_clients.items():
-
-        for client_id in client_ids:
-
-            client = clients_by_id[client_id]
-
-            local_model, loss = (client.train_received_package())
-
-            update = compute_model_update(
-                global_model,
-                local_model
-            )
-
-            if client.malicious:
-                update = apply_attack(
-                    update,
-                    ATTACK_TYPE
-                )
-
-            server.receive_client_update(
-                client_id,
-                update
-            )
-
-            print(
-                f"BACKUP | "
-                f"Round {round_id} | "
-                f"Cluster {cluster_id} | "
-                f"Client {client_id} | "
-                f"Loss = {loss:.4f}"
-            )
-
-
-    print("Trust scores before evaluation:")
-    print(server.trust_scores)
-
-    server.trust_evaluation_and_backup_replacement()
-
-    print("Trust scores after evaluation:")
-    print(server.trust_scores)
-
-    print("Accepted clients:")
-    print(server.accepted_clients)
-
-
-    global_model = server.aggregate(
-        global_model,
-        trim_ratio=0.2
-    )
-    val_loss, val_accuracy = evaluate_validation(
-        global_model,
-        val_dataset
-    )
+def run_client(client_id):
 
     print(
-        f"Accuracy: {val_accuracy:.4f}"
+        f"\nStarting client {client_id}"
     )
 
-    print(
-        f"Model relative change: "
-        f"{server.model_relative_change:.8f}"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_app.run_round",
+            "--id",
+            str(client_id)
+        ]
     )
 
+    if result.returncode != 0:
 
-
-    if server.model_relative_change < MODEL_CHANGE_THRESHOLD:
-
-        val_loss, val_accuracy = evaluate_validation(
-            global_model,
-            val_dataset
+        raise RuntimeError(
+            f"Client {client_id} failed"
         )
+
+    return client_id
+
+
+
+# Federated rounds
+
+for round_id in range(
+    1,
+    NUM_ROUNDS + 1
+):
+
+    print("\n========================")
+    print(f"ROUND {round_id}")
+    print("========================")
+
+     # Start round
+    response = requests.post(
+        f"{SERVER}/start_round",
+        json={
+            "round_id": round_id
+        }
+    )
+
+    response.raise_for_status()
+
+    start_result = response.json()
+
+    print(
+        "Round started:",
+        start_result
+    )
+
+
+    # Prepare round
+
+    response = requests.post(
+        f"{SERVER}/prepare_round"
+    )
+
+    response.raise_for_status()
+
+    prepare_result = response.json()
+
+
+    if (
+        prepare_result.get("status")
+        == "waiting"
+    ):
 
         print(
-            f"Validation Loss: {val_loss:.6f} | "
-            f"Validation Accuracy: {val_accuracy:.4f}"
+            "Not enough registered clients:",
+            prepare_result
         )
+
+        break
+
+
+    # Selected clients
+
+    response = requests.get(
+        f"{SERVER}/round_selection"
+    )
+
+    response.raise_for_status()
+
+    selection = response.json()
+
+
+    main_clients = selection[
+        "main_clients"
+    ]
+
+    backup_clients = selection[
+        "backup_clients"
+    ]
+
+
+    main_ids = []
+
+    backup_ids = []
+
+
+    for cluster_clients in (
+        main_clients.values()
+    ):
+
+        main_ids.extend(
+            cluster_clients
+        )
+
+
+    for cluster_clients in (
+        backup_clients.values()
+    ):
+
+        backup_ids.extend(
+            cluster_clients
+        )
+
+
+    selected_clients = sorted(
+        set(
+            main_ids
+            +
+            backup_ids
+        )
+    )
+
+
+    print(
+        "Main clients:",
+        main_ids
+    )
+
+    print(
+        "Backup clients:",
+        backup_ids
+    )
+
+    print(
+        "Selected malicious main clients:",
+        sorted(
+            set(main_ids)
+            &
+            malicious_ids
+        )
+    )
+
+    print(
+        "Selected malicious backup clients:",
+        sorted(
+            set(backup_ids)
+            &
+            malicious_ids
+        )
+    )
+
+    # Parallel local training
+
+
+    with ThreadPoolExecutor(
+        max_workers=len(
+            selected_clients
+        )
+    ) as executor:
+
+        futures = [
+            executor.submit(
+                run_client,
+                client_id
+            )
+            for client_id
+            in selected_clients
+        ]
+
+
+        for future in futures:
+
+            future.result()
+
+
+    print(
+        "\nAll selected clients finished"
+    )
+
+    # Trust + aggregation
+
+
+    response = requests.post(
+        f"{SERVER}/aggregate"
+    )
+
+    response.raise_for_status()
+
+    aggregation_result = (
+        response.json()
+    )
+
+
+    print(
+        "Accepted clients:",
+        aggregation_result[
+            "accepted_clients"
+        ]
+    )
+
+    print(
+        "Trust scores:",
+        aggregation_result[
+            "trust_scores"
+        ]
+    )
+
+
+    model_relative_change = (
+        aggregation_result[
+            "model_relative_change"
+        ]
+    )
+
+
+    print(
+        "Model relative change:",
+        model_relative_change
+    )
+
+    # Global evaluation
+
+
+    response = requests.get(
+        f"{SERVER}/evaluate"
+    )
+
+    response.raise_for_status()
+
+    evaluation = response.json()
+
+
+    val_accuracy = (
+        evaluation["accuracy"]
+    )
+
+    val_loss = (
+        evaluation["loss"]
+    )
+
+
+    print(
+        f"Global Accuracy: "
+        f"{val_accuracy:.4f}"
+    )
+
+    print(
+        f"Global Loss: "
+        f"{val_loss:.6f}"
+    )
+
+
+    # Stopping criterion
+
+    if (
+        model_relative_change
+        <
+        MODEL_CHANGE_THRESHOLD
+    ):
 
         if previous_val_loss is not None:
 
             val_loss_change = abs(
-                val_loss - previous_val_loss
+                val_loss
+                -
+                previous_val_loss
             )
+
 
             print(
-                f"Validation Loss Change: "
-                f"{val_loss_change:.6f}"
+                "Validation loss change:",
+                val_loss_change
             )
 
-            if val_loss_change < VAL_LOSS_CHANGE_THRESHOLD:
+
+            if (
+                val_loss_change
+                <
+                VAL_LOSS_CHANGE_THRESHOLD
+            ):
+
                 stable_checks += 1
+
             else:
+
                 stable_checks = 0
+
+
+        previous_val_loss = (
+            val_loss
+        )
+
+
+        print(
+            f"Stable checks: "
+            f"{stable_checks}/{PATIENCE}"
+        )
+
+
+        if (
+            stable_checks
+            >=
+            PATIENCE
+        ):
+
             print(
-                f"Stable checks: "
-                f"{stable_checks}/{PATIENCE}"
+                "\nTraining stopped:"
             )
 
-
-        previous_val_loss = val_loss
-
-        if stable_checks >= PATIENCE:
             print(
-                "Training stopped: "
-                "convergence criteria satisfied."
+                "Convergence criteria "
+                "satisfied."
             )
+
             break
+
+
     else:
+
         stable_checks = 0
+
         previous_val_loss = None
 
-    print(f"Round {round_id} completed.")
-    print("---------")
-    
 
+    print(
+        f"ROUND {round_id} completed."
+    )
+
+    time.sleep(1)

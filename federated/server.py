@@ -3,12 +3,12 @@ import  numpy as np
 
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
-from evaluate.global_evaluate import evaluate_model
-from evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
+from evaluation.global_evaluate import evaluate_model
+from evaluation.evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
 from aggregation.client_weights import compute_client_weights
 from aggregation.intra_cluster import aggregate_clusters
 from aggregation.inter_cluster import inter_cluster_aggregation
-from federated.model_update import apply_model_update
+from evaluation.evaluate_updates.model_update import apply_model_update
 from models.model import MNISTCNN
 
 
