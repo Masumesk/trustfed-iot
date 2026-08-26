@@ -20,7 +20,7 @@ DATA_SEED = 42
 
 # Attack configuration
 
-ATTACK_TYPE = "gaussian"
+ATTACK_TYPE = "label_flip"
 
 MALICIOUS_RATIO = 0.2
 MALICIOUS_SEED = 42

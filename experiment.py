@@ -1,20 +1,12 @@
-import requests
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
-from concurrent.futures import (
-    ThreadPoolExecutor
-)
+import requests
 
-from config import (
-    NUM_ROUNDS,
-    MODEL_CHANGE_THRESHOLD,
-    VAL_LOSS_CHANGE_THRESHOLD,
-    PATIENCE,
-    get_malicious_ids
-)
-
+from config import (MODEL_CHANGE_THRESHOLD, NUM_ROUNDS, PATIENCE,
+                    VAL_LOSS_CHANGE_THRESHOLD, get_malicious_ids)
 
 SERVER = "http://127.0.0.1:8000"
 
@@ -71,6 +63,23 @@ for round_id in range(
     print("\n========================")
     print(f"ROUND {round_id}")
     print("========================")
+
+     # Start round
+    response = requests.post(
+        f"{SERVER}/start_round",
+        json={
+            "round_id": round_id
+        }
+    )
+
+    response.raise_for_status()
+
+    start_result = response.json()
+
+    print(
+        "Round started:",
+        start_result
+    )
 
 
     # Prepare round
