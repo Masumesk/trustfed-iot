@@ -2,8 +2,10 @@ from federated.client import Client
 from data import load_mnist
 from data.partition import partition_dirichlet
 
-from client_app.api_client import register_client
-
+from client_app.api_client import (
+    register_client,
+    set_server_url
+)
 
 import argparse
 
@@ -16,10 +18,17 @@ parser.add_argument(
     required=True
 )
 
+parser.add_argument(
+    "--server",
+    type=str,
+    default="http://127.0.0.1:8000"
+)
+
 args = parser.parse_args()
 
 client_id = args.id
 
+set_server_url(args.server)
 
 train_dataset, _ = load_mnist()
 

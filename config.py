@@ -4,6 +4,7 @@ import numpy as np
 # Federated configuration
 
 NUM_CLIENTS = 30
+PARTICIPATION_RATIO = 0.3
 
 NUM_ROUNDS = 50
 
@@ -11,8 +12,13 @@ LOCAL_EPOCHS = 1
 BATCH_SIZE = 32
 LEARNING_RATE = 0.01
 
-# Data distribution
+# Reproducibility
+# Selection is still random-looking, but repeatable across full experiment runs.
+MODEL_SEED = 42
+TRAINING_SEED = 42
+SELECTION_SEED = 42
 
+# Data distribution
 
 DIRICHLET_ALPHA = 0.3
 MIN_SAMPLES = 100
@@ -47,10 +53,12 @@ def get_malicious_ids():
         for client_id in malicious_ids
     )
 
+
 # Convergence
 
 MODEL_CHANGE_THRESHOLD = 0.01
-
 VAL_LOSS_CHANGE_THRESHOLD = 0.01
-
 PATIENCE = 3
+
+# Multi-Krum
+MULTI_KRUM_F = 2

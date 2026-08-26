@@ -11,7 +11,10 @@ def multi_krum(client_updates, f, m=None):
         raise ValueError("multi-Krum condition failed:")
 
     updates = np.stack([
-        np.asarray(client_updates[cid]).reshape(-1)
+        np.asarray(
+            client_updates[cid],
+            dtype=np.float32
+        ).reshape(-1)
         for cid in client_ids
     ])
 
@@ -38,22 +41,33 @@ def multi_krum(client_updates, f, m=None):
             distances[:num_neighbors]
         )
 
-        scores[client_id] = score
+        scores[client_id] = float(score)
+
+    max_m = n - f - 2
 
     if m is None:
-        m = n - f
+        m = max_m
 
-    score_values = np.array([scores[cid] for cid in client_ids])
+    if m < 1 or m > max_m:
+        raise ValueError(
+            f"Invalid m={m}. "
+            f"Must satisfy 1 <= m <= {max_m}"
+        )
 
-    selected_indices = np.argsort(score_values)[:m]
+    # score_values = np.array([scores[cid] for cid in client_ids])
 
-    selected_clients = [
-        client_ids[i]
-        for i in selected_indices
-    ]
+    # selected_indices = np.argsort(score_values)[:m]
+
+    selected_clients = sorted(
+        client_ids,
+        key=lambda cid: (scores[cid], cid)
+    )[:m]
 
     selected_updates = np.stack([
-        client_updates[cid]
+        np.asarray(
+            client_updates[cid],
+            dtype=np.float32
+        ).reshape(-1)
         for cid in selected_clients
     ])
 

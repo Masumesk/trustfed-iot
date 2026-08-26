@@ -2,8 +2,13 @@ import requests
 import torch
 from models.model import MNISTCNN
 
+
 SERVER_URL = "http://127.0.0.1:8000"
 
+
+def set_server_url(url):
+    global SERVER_URL
+    SERVER_URL = url.rstrip("/")
 
 def register_client(client_info):
 
@@ -42,14 +47,23 @@ def load_global_model(package):
     return model
 
 
-def send_update(client_id, update):
+def send_update(
+    client_id,
+    update,
+    round_id=None
+):
+
+    payload = {
+        "client_id": client_id,
+        "update": update.tolist()
+    }
+
+    if round_id is not None:
+        payload["round_id"] = round_id
 
     response = requests.post(
         f"{SERVER_URL}/update",
-        json={
-            "client_id": client_id,
-            "update": update.tolist()
-        }
+        json=payload
     )
 
     response.raise_for_status()

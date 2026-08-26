@@ -12,7 +12,7 @@ from config import (ATTACK_TYPE, BATCH_SIZE, DATA_SEED, DIRICHLET_ALPHA,
 from data import load_mnist
 from data.partition import partition_dirichlet
 from evaluate.global_evaluate import evaluate_model
-from experiments.multi_Krum import multi_krum
+from experiments.multi_Krum.multi_Krum import multi_krum
 from federated.client import Client
 from federated.model_update import apply_model_update, compute_model_update
 from models.model import MNISTCNN
