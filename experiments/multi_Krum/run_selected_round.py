@@ -5,6 +5,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 import requests
 
+from evaluation.csv_output import save_round_to_csv
+
 from config import (
     MODEL_CHANGE_THRESHOLD,
     NUM_ROUNDS,
@@ -191,6 +193,25 @@ def run_one_round(
         f"{stable_checks}/{PATIENCE}"
     )
     print("-" * 70)
+
+    save_round_to_csv(
+        "results/multikrum.csv",
+        {
+            "round": round_id,
+            "accuracy": accuracy,
+            "loss": loss,
+            "relative_change": relative_change,
+            "selected_malicious": len(
+                selected_malicious
+            ),
+            "malicious_kept": len(
+                malicious_kept
+            ),
+            "malicious_rejected": len(
+                malicious_rejected
+            ),
+        }
+    )
 
     return {
         "round": round_id,

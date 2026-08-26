@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
+from evaluation.csv_output import save_round_to_csv
+
 from config import (
     MODEL_CHANGE_THRESHOLD,
     NUM_ROUNDS,
@@ -13,6 +15,7 @@ from config import (
     VAL_LOSS_CHANGE_THRESHOLD,
     get_malicious_ids,
 )
+
 
 
 
@@ -199,6 +202,25 @@ def run_one_round(
         f"{stable_checks}/{PATIENCE}"
     )
     print("-" * 70)
+
+    save_round_to_csv(
+        "results/fedavg.csv",
+        {
+            "round": round_id,
+            "accuracy": accuracy,
+            "loss": loss,
+            "relative_change": relative_change,
+            "selected_malicious": len(
+                selected_malicious
+            ),
+            "malicious_kept": len(
+                malicious_kept
+            ),
+            "malicious_rejected": len(
+                malicious_rejected
+            ),
+        }
+    )
 
     return {
         "round": round_id,

@@ -177,7 +177,7 @@ def aggregate():
         sample_counts,
     )
 
-    # Same relative-change calculation as the standalone baseline:
+    
     with torch.no_grad():
         model_norm = torch.sqrt(
             sum(
@@ -211,7 +211,34 @@ def evaluate_global_model():
     )
 
     return {
-        "round": current_round,
-        "accuracy": float(result["accuracy"]),
-        "loss": float(result["loss"]),
+        "round":
+            current_round,
+
+        "accuracy":
+            float(
+                result["accuracy"]
+            ),
+
+        "loss":
+            float(
+                result["loss"]
+            ),
+
+        "balanced_accuracy":
+            float(
+                result["balanced_accuracy"]
+            ),
+
+        "worst_class_accuracy":
+            float(
+                result["worst_class_accuracy"]
+            ),
+
+        "class_accuracy_std":
+            float(
+                result["class_accuracy_std"]
+            ),
+
+        "per_class_accuracy":
+            result["per_class_accuracy"],
     }

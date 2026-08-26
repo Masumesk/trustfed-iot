@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
+from evaluation.csv_output import save_round_to_csv
+
 from config import (MODEL_CHANGE_THRESHOLD, NUM_ROUNDS, PATIENCE,
                     VAL_LOSS_CHANGE_THRESHOLD, get_malicious_ids)
 
@@ -273,6 +275,60 @@ for round_id in range(
 
     val_loss = (
         evaluation["loss"]
+    )
+
+    selected_malicious = sorted(
+        set(selected_clients)
+        &
+        malicious_ids
+    )
+
+    accepted_ids = []
+
+    for cluster_clients in aggregation_result[
+        "accepted_clients"
+    ].values():
+
+        for item in cluster_clients:
+
+            if isinstance(item, (list, tuple)):
+                client_id = item[0]
+            else:
+                client_id = item
+
+            accepted_ids.append(
+                int(client_id)
+            )
+
+    malicious_kept = [
+        client_id
+        for client_id in selected_malicious
+            if client_id in accepted_ids
+    ]
+
+    malicious_rejected = [
+        client_id
+        for client_id in selected_malicious
+            if client_id not in accepted_ids
+    ]
+
+    save_round_to_csv(
+        "results/proposed.csv",
+        {
+            "round": round_id,
+            "accuracy": val_accuracy,
+            "loss": val_loss,
+            "relative_change": model_relative_change,
+            "selected_malicious": len(
+                selected_malicious
+            ),
+            "malicious_kept": len(
+                malicious_kept
+            ),
+            "malicious_rejected": len(
+                malicious_rejected
+            ),
+        }
     )
 
 
