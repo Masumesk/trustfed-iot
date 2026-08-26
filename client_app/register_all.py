@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 from config import NUM_CLIENTS
 
@@ -16,12 +17,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-for client_id in range(NUM_CLIENTS):
-
-    print(
-        f"Registering client {client_id}"
-    )
-
+def register_one(client_id):
+    print(f"Registering client {client_id}")
     subprocess.run(
         [
             sys.executable,
@@ -36,6 +33,10 @@ for client_id in range(NUM_CLIENTS):
         ],
         check=True
     )
+    return client_id
 
 
-print("All clients registered")
+with ThreadPoolExecutor(max_workers=10) as executor:
+    results = list(executor.map(register_one, range(NUM_CLIENTS)))
+
+print("All clients registered:", results)

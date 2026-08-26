@@ -1,17 +1,20 @@
 import numpy as np
 
-def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix, t_near,client_to_index):
+MIN_REFERENCE_CLIENTS = 3
+
+def compute_median_update(cluster_id, cluster_updates,
+                          medoids, distance_matrix, t_near,client_to_index):
     
     updates = cluster_updates.get(cluster_id, [])
 
-    if len(updates) >= 3:
+    if len(updates) >= MIN_REFERENCE_CLIENTS:
 
-        md = np.median(
+        reference = np.median(
             np.stack(updates),
             axis=0
         )
 
-        return md, cluster_id
+        return reference, cluster_id
 
     cur_md = medoids[cluster_id]
 
@@ -20,7 +23,7 @@ def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix,
 
     for candidate_id, candidate_updates in cluster_updates.items():
 
-        if ( len(candidate_updates) >= 2 and candidate_id != cluster_id ):
+        if ( len(candidate_updates) >= MIN_REFERENCE_CLIENTS and candidate_id != cluster_id ):
 
             candidate_medoid = medoids[candidate_id]
 
@@ -37,19 +40,18 @@ def compute_median_update(cluster_id, cluster_updates, medoids, distance_matrix,
     
     if ( nearest_cluster is not None and min_dist <= t_near):
 
-        md = np.median(
+        reference = np.median(
             np.stack(
                 cluster_updates[nearest_cluster]
             ),
             axis=0
         )
 
-        return md, nearest_cluster
+        return reference, nearest_cluster
 
 
     return None, None
 
-import numpy as np
 
 
 def compute_A_i(update, reference, reference_updates):
@@ -73,4 +75,4 @@ def compute_A_i(update, reference, reference_updates):
 def update_trust_score(old_trust, A_i, lambda_trust):
 
     new_trust = (lambda_trust*old_trust + (1 - lambda_trust)*(1 / (1 + A_i)))
-    return new_trust
+    return float(new_trust)

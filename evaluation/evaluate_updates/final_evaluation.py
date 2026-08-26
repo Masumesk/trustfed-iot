@@ -1,24 +1,36 @@
-from evaluation.evaluate_updates.trust_score import compute_median_update, compute_A_i, update_trust_score
-from evaluation.evaluate_updates.evaluate_clients import evaluate_clients
-from evaluation.evaluate_updates.backup_replacement import replace_backup_clients
+from evaluation.evaluate_updates.trust_score import (
+    compute_median_update,
+    compute_A_i,
+    update_trust_score,
+)
+
+from evaluation.evaluate_updates.evaluate_clients import (
+    evaluate_clients,
+)
+
+from evaluation.evaluate_updates.backup_replacement import (
+    replace_backup_clients,
+)
+
 
 def trust_evaluation_and_backup_replacement(
     clusters,
-    main_clients, #S_m
-    backup_clients, #S_b
-    main_updates, 
+    main_clients,
+    backup_clients,
+    main_updates,
     backup_updates,
-    trust_scores, 
+    trust_scores,
     medoids,
-    distance_matrix, #D
-    t_near, #threshold for finding near clusters
-    lambda_trust, #weight of old trust score in trust score
-    trust_threshold, 
-    alpha, #weight of trust score in selection score
+    distance_matrix,
+    t_near,
+    lambda_trust,
+    trust_threshold,
+    alpha,
     client_infos,
-    cluster_sample_counts, #Ni
-    client_to_index #index
+    cluster_sample_counts,
+    client_to_index
 ):
+
 
     cluster_updates = {}
 
@@ -26,86 +38,231 @@ def trust_evaluation_and_backup_replacement(
 
         updates = []
 
-        for client_id in main_clients.get(cluster_id, []):
-            updates.append(main_updates[client_id])
+        # Main updates
+        for client_id in main_clients.get(
+            cluster_id,
+            []
+        ):
 
-        if len(updates) < 2:
-            for client_id in backup_clients.get(cluster_id, []):
-                updates.append(backup_updates[client_id])
+            if client_id in main_updates:
 
-        cluster_updates[cluster_id] = updates
+                updates.append(
+                    main_updates[client_id]
+                )
 
 
-    
+        # Backup updates
+        # Backup updates
+        if len(updates) < 3:
+
+            for client_id in backup_clients.get(
+                    cluster_id,
+                    []
+            ):
+
+                if client_id in backup_updates:
+                    updates.append(
+                        backup_updates[client_id]
+                    )
+
+                if len(updates) >= 3:
+                    break
+
+
+        cluster_updates[
+            cluster_id
+        ] = updates
+
+
+    evaluated_clients = set()
+
+    evaluated_backups = set()
+
+
+    # Evaluate each cluster
+
     for cluster_id in clusters:
 
-        #compute median 
-        md, nearest_cluster = compute_median_update(
-            cluster_id,
-            cluster_updates,
-            medoids,
-            distance_matrix,
-            t_near,
-            client_to_index
+        reference, reference_cluster = (
+            compute_median_update(
+                cluster_id,
+                cluster_updates,
+                medoids,
+                distance_matrix,
+                t_near,
+                client_to_index
+            )
         )
 
-        #for clusters with just one update evalute updates base on nearest cluster
-        # ToDo:change nearest_cluster name
-        if nearest_cluster is not None:
-            
-            nearest_updates = cluster_updates[nearest_cluster]
 
-            for client_id in main_clients.get(cluster_id, []):
-
-                old_trust = trust_scores.get(client_id)
-
-                update = main_updates[client_id]
-
-                #normalized distance to cluster median
-                A_i = compute_A_i(
-                    update,
-                    md,
-                    nearest_updates
-                )
-
-                new_trust = update_trust_score(
-                    old_trust,
-                    A_i,
-                    lambda_trust
-                )
-
-                trust_scores[client_id] = round(float(new_trust),2)
+        print(
+            f"Cluster {cluster_id} | "
+            f"reference pool size="
+            f"{len(cluster_updates.get(cluster_id, []))}"
+        )
 
 
-            #update trust score for backups
-            for client_id in backup_clients.get(cluster_id, []):
+        # No valid reference
 
-                old_trust = trust_scores.get(client_id)
+        if reference is None:
 
-                update = backup_updates[client_id]
+            print(
+                f"Cluster {cluster_id} | "
+                f"reference unavailable | "
+                f"historical trust preserved"
+            )
 
-                A_i = compute_A_i(
-                    update,
-                    md,
-                    nearest_updates
-                )
+            continue
 
-                new_trust = update_trust_score(
-                    old_trust,
-                    A_i,
-                    lambda_trust
-                )
 
-                trust_scores[client_id] = round(float(new_trust),2)
 
-    valid_clients, suspicious_clients = evaluate_clients( #V_Gt #U_Gt
-        clusters,
-        main_clients,
-        trust_scores,
-        trust_threshold
+        reference_updates = (
+            cluster_updates[
+                reference_cluster
+            ]
+        )
+
+
+        if reference_cluster == cluster_id:
+
+            reference_source = (
+                f"own_cluster_{cluster_id}"
+            )
+
+        else:
+
+            reference_source = (
+                f"nearest_cluster_"
+                f"{reference_cluster}"
+            )
+
+
+        print(
+            f"Cluster {cluster_id} | "
+            f"reference source="
+            f"{reference_source} | "
+            f"reference size="
+            f"{len(reference_updates)}"
+        )
+
+
+        # Evaluate MAIN clients
+
+        for client_id in main_clients.get(
+            cluster_id,
+            []
+        ):
+
+            if client_id not in main_updates:
+                continue
+
+
+            old_trust = trust_scores.get(
+                client_id,
+                0.5
+            )
+
+            update = main_updates[
+                client_id
+            ]
+
+
+            A_i = compute_A_i(
+                update,
+                reference,
+                reference_updates
+            )
+
+
+            new_trust = update_trust_score(
+                old_trust,
+                A_i,
+                lambda_trust
+            )
+
+
+
+            trust_scores[
+                client_id
+            ] = new_trust
+
+
+            evaluated_clients.add(
+                client_id
+            )
+
+
+            print(
+                f"Client {client_id} | "
+                f"A_i={A_i:.4f} | "
+                f"trust "
+                f"{old_trust:.4f}"
+                f" -> "
+                f"{new_trust:.4f}"
+            )
+
+
+        # Evaluate BACKUP clients
+
+        for client_id in backup_clients.get(
+            cluster_id,
+            []
+        ):
+
+            if client_id not in backup_updates:
+                continue
+
+
+            old_trust = trust_scores.get(
+                client_id,
+                0.5
+            )
+
+            update = backup_updates[
+                client_id
+            ]
+
+
+            A_i = compute_A_i(
+                update,
+                reference,
+                reference_updates
+            )
+
+
+            new_trust = update_trust_score(
+                old_trust,
+                A_i,
+                lambda_trust
+            )
+
+
+            trust_scores[
+                client_id
+            ] = new_trust
+
+
+            evaluated_backups.add(
+                client_id
+            )
+
+
+    # Split mains into valid / suspicious
+
+    valid_clients, suspicious_clients, unresolved_clients = (
+        evaluate_clients(
+            clusters,
+            main_clients,
+            trust_scores,
+            trust_threshold,
+            evaluated_clients
+        )
     )
 
-    accepted_clients= replace_backup_clients(
+
+    # Backup replacement
+
+    accepted_clients = replace_backup_clients(
         clusters,
         valid_clients,
         suspicious_clients,
@@ -115,7 +272,20 @@ def trust_evaluation_and_backup_replacement(
         cluster_sample_counts,
         trust_threshold,
         alpha,
+        evaluated_backups
     )
 
-    return trust_scores,accepted_clients
-    
+    for cluster_id in clusters:
+
+        for client_id in unresolved_clients.get(cluster_id, []):
+            accepted_clients[cluster_id].append(
+                (
+                    client_id,
+                    float(trust_scores.get(client_id, 0.5))
+                )
+            )
+
+    return (
+        trust_scores,
+        accepted_clients
+    )

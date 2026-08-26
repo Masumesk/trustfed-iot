@@ -5,6 +5,7 @@ from data import load_mnist
 
 import numpy as np
 
+
 class ClientUpdate(BaseModel):
     client_id: int
     update: list
@@ -17,67 +18,51 @@ class ClientInfo(BaseModel):
     distribution: list
     num_samples: int
 
+
+def get_selected_client_ids(server):
+    selected = set()
+    for clients in server.main_clients.values():
+        selected.update(clients)
+    for clients in server.backup_clients.values():
+        selected.update(clients)
+    return selected
+
+
 server = Server()
-
 _, test_dataset = load_mnist()
-
 server.test_dataset = test_dataset
-app = FastAPI(
-    title="TrustFed IoT Server"
-)
+app = FastAPI(title="TrustFed IoT Server")
+
 
 @app.post("/start_round")
 def start_round(data: RoundRequest):
-
     server.start_round(data.round_id)
-
-    return {
-        "status": "round started",
-        "round_id": data.round_id
-    }
+    return {"status": "round started", "round_id": data.round_id}
 
 
 @app.get("/")
 def root():
-    return {
-        "status": "running",
-        "service": "TrustFed Server"
-    }
+    return {"status": "running", "service": "TrustFed Server"}
+
 
 @app.post("/register")
 def register_client(info: ClientInfo):
-
     client_info = {
         "client_id": info.client_id,
         "distribution": info.distribution,
         "num_samples": info.num_samples
     }
-
     server.client_infos[info.client_id] = client_info
-
-    return {
-        "status": "registered",
-        "client_id": info.client_id
-    }
+    return {"status": "registered", "client_id": info.client_id}
 
 
 @app.post("/prepare_round")
 def prepare_round():
-    #  server.expected_clients
     if len(server.client_infos) < 3:
-        return {
-            "status": "waiting",
-            "registered": len(server.client_infos),
-            "expected": 3
-        }
+        return {"status": "waiting", "registered": len(server.client_infos), "expected": 3}
 
-
-    server.receive_client_distributions(
-        server.client_infos
-    )
-
+    server.receive_client_distributions(server.client_infos)
     server.client_clustering()
-
     server.main_and_backup_client_selection()
 
     return {
@@ -87,8 +72,14 @@ def prepare_round():
         "backup_clients": server.backup_clients
     }
 
+
 @app.get("/model/{client_id}")
 def get_model(client_id: int):
+
+    selected = get_selected_client_ids(server)
+
+    if client_id not in selected:                     # ← چک جدید
+        return {"status": "not_selected", "client_id": client_id}
 
     return {
         "client_id": client_id,
@@ -98,71 +89,40 @@ def get_model(client_id: int):
         "learning_rate": 0.01
     }
 
+
 @app.post("/update")
 def receive_update(data: ClientUpdate):
 
-    server.receive_client_update(
-        data.client_id,
-        np.array(data.update)
-    )
+    selected = get_selected_client_ids(server)
 
-    print("MAIN:", server.main_updates.keys())
-    print("BACKUP:", server.backup_updates.keys())
-    return {
-        "status": "update received",
-        "client_id": data.client_id
-    }
+    if data.client_id not in selected:
+        return {
+            "status": "rejected_not_selected",
+            "client_id": data.client_id
+        }
 
+    server.receive_client_update(data.client_id, np.array(data.update))
 
+    return {"status": "update stored", "client_id": data.client_id}
 
 
 @app.post("/aggregate")
 def aggregate():
-
     server.trust_evaluation_and_backup_replacement()
-    print(
-        "MAIN UPDATES:",
-        server.main_updates.keys()
-    )
-    print(
-        "BACKUP UPDATES:",
-        server.backup_updates.keys()
-    )
-    print(
-        "ACCEPTED CLIENTS:",
-        server.accepted_clients
-    )
-    print(
-        "TRUST SCORES:",
-        server.trust_scores
-    )
     server.aggregate()
     return {
         "status": "aggregation completed",
-
-        "accepted_clients":
-            server.accepted_clients,
-
-        "trust_scores":
-            server.trust_scores,
-
-        "model_relative_change":
-            server.model_relative_change
+        "accepted_clients": server.accepted_clients,
+        "trust_scores": server.trust_scores,
+        "model_relative_change": server.model_relative_change
     }
 
 
 @app.get("/evaluate")
 def evaluate():
-
-    result = server.evaluate()
-
-    return result
+    return server.evaluate()
 
 
 @app.get("/round_selection")
 def round_selection():
-
-    return {
-        "main_clients": server.main_clients,
-        "backup_clients": server.backup_clients
-    }
+    return {"main_clients": server.main_clients, "backup_clients": server.backup_clients}
