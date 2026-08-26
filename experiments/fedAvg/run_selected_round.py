@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+
 import requests
 
 from config import (
@@ -14,14 +15,13 @@ from config import (
 )
 
 
-# Arguments
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
     "--server",
     type=str,
-    default="http://127.0.0.1:8002",
+    default="http://127.0.0.1:8001",
 )
 
 parser.add_argument(
@@ -40,14 +40,36 @@ malicious_ids = set(
 )
 
 
-# Run one complete FL round
+# Run one selected client
+
+def run_client(client_id):
+
+    print(
+        f"\nRunning client {client_id}"
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_app.run_round",
+            "--id",
+            str(client_id),
+            "--server",
+            server_url,
+        ],
+        check=True,
+    )
+
+    return client_id
+
+
 
 def run_one_round(
     previous_loss,
     stable_checks,
 ):
 
-    # 1. Start round
     response = requests.post(
         f"{server_url}/start_round"
     )
@@ -70,11 +92,10 @@ def run_one_round(
     print(f"Selected malicious: {selected_malicious}")
 
     # 2. Run selected clients
-    # 2. Run selected clients
     with ThreadPoolExecutor(
-            max_workers=len(
-                selected_clients
-            )
+        max_workers=len(
+            selected_clients
+        )
     ) as executor:
 
         futures = [
@@ -87,6 +108,7 @@ def run_one_round(
         ]
 
         for future in futures:
+
             future.result()
 
     print(
@@ -94,7 +116,7 @@ def run_one_round(
         "and sent their updates."
     )
 
-    print("\nRunning Multi-Krum aggregation...")
+    print("\nRunning FedAvg aggregation...")
 
     response = requests.post(
         f"{server_url}/aggregate"
@@ -111,28 +133,16 @@ def run_one_round(
         )
     )
 
-    selected_by_krum = aggregation_result.get(
-        "selected_by_krum",
-        [],
-    )
-
     relative_change = float(
         aggregation_result["relative_change"]
     )
 
-    malicious_kept = [
-        client_id
-        for client_id in selected_by_krum
-        if client_id in malicious_ids
-    ]
+    malicious_kept = list(
+        selected_malicious
+    )
 
-    malicious_rejected = [
-        client_id
-        for client_id in selected_malicious
-        if client_id not in selected_by_krum
-    ]
+    malicious_rejected = []
 
-    # 5. Evaluate new global model
     print("\nEvaluating global model...")
 
     response = requests.get(
@@ -174,9 +184,7 @@ def run_one_round(
     print("-" * 70)
     print(f"Selected clients:       {selected_clients}")
     print(f"Selected malicious:     {selected_malicious}")
-    print(f"Selected by Multi-Krum: {selected_by_krum}")
-    print(f"Malicious kept:         {malicious_kept}")
-    print(f"Malicious rejected:     {malicious_rejected}")
+    print(f"Malicious aggregated:   {malicious_kept}")
     print(f"Accuracy:               {accuracy:.4f}")
     print(f"Loss:                   {loss:.6f}")
     print(f"Relative change:        {relative_change:.6f}")
@@ -196,7 +204,6 @@ def run_one_round(
         "round": round_id,
         "selected_clients": selected_clients,
         "selected_malicious": selected_malicious,
-        "selected_by_krum": selected_by_krum,
         "malicious_kept": malicious_kept,
         "malicious_rejected": malicious_rejected,
         "accuracy": accuracy,
@@ -207,26 +214,6 @@ def run_one_round(
         "converged": converged,
     }
 
-def run_client(client_id):
-
-    print(
-        f"\nRunning client {client_id}"
-    )
-
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "client_app.run_round",
-            "--id",
-            str(client_id),
-            "--server",
-            server_url,
-        ],
-        check=True,
-    )
-
-    return client_id
 
 # Multi-round experiment
 
@@ -269,7 +256,7 @@ for result in results:
         f"change={result['relative_change']:.6f} | "
         f"stable={result['stable_checks']}/{PATIENCE} | "
         f"malicious selected={len(result['selected_malicious'])} | "
-        f"malicious kept={len(result['malicious_kept'])}"
+        f"malicious aggregated={len(result['malicious_kept'])}"
     )
 
 print("=" * 90)

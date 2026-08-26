@@ -1,5 +1,7 @@
 import copy
 
+import numpy as np
+
 
 def fedavg(local_models, sample_counts):
 
@@ -26,3 +28,24 @@ def fedavg(local_models, sample_counts):
             )
 
     return global_state
+
+def fedavg_updates(updates, sample_counts):
+
+    total_samples = sum(sample_counts)
+
+    aggregated_update = np.zeros_like(
+        updates[0]
+    )
+
+    for update, num_samples in zip(
+        updates,
+        sample_counts
+    ):
+
+        weight = num_samples / total_samples
+
+        aggregated_update += (
+            weight * update
+        )
+
+    return aggregated_update
