@@ -1,5 +1,21 @@
 import torch
-import  numpy as np
+import numpy as np
+
+from config import (
+    PARTICIPATION_RATIO,
+    OPTICS_MIN_SAMPLES,
+    OPTICS_XI,
+    OPTICS_MIN_CLUSTER_SIZE,
+    NOISE_ASSIGNMENT_THRESHOLD,
+    SELECTION_ALPHA,
+    BACKUP_RATIO,
+    RANDOM_RATIO,
+    T_NEAR,
+    LAMBDA_TRUST,
+    TRUST_THRESHOLD,
+    INITIAL_TRUST,
+    TRIM_RATIO,
+)
 
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
@@ -20,84 +36,80 @@ class Server:
         # self.client_ids = list(
         #     self.client_infos.keys()
         # )
-        self.client_to_index = {} #index
+        self.client_to_index = {}  # index
 
         self.trust_scores = {}
 
-        #clustering
-        self.clusters = {} #G
-        self.distance_matrix = None #D
+        # clustering
+        self.clusters = {}  # G
+        self.distance_matrix = None  # D
         self.medoids = {}
-        self.cluster_samples_counts = {} #Ni
-        self.cluster_data_shares = {} #qk
-        self.k=0 #cluster count
+        self.cluster_samples_counts = {}  # Ni
+        self.cluster_data_shares = {}  # qk
+        self.k = 0  # cluster count
 
-        #client_selection
-        self.M=0 
+        # client_selection
+        self.M = 0
         self.main_clients = {}
         self.backup_clients = {}
 
-        #train
+        # train
         self.main_updates = {}
         self.backup_updates = {}
         self.current_round = 0
 
-        #aggregation
+        # aggregation
         self.accepted_clients = {}
         self.client_weights = {}
         self.cluster_updates = {}
         self.global_update = None
         self.model_relative_change = None
+        self.backup_requirements = {}
 
         # global model
         self.global_model = MNISTCNN()
 
-        #evaluation
+        # evaluation
         self.test_dataset = None
 
-    
     def receive_client_distributions(self, client_infos):
-        
-        self.client_infos = client_infos 
-        self.client_to_index = { #index
-            cid:i
-            for i,cid in enumerate(self.client_infos.keys())
+
+        self.client_infos = client_infos
+        self.client_to_index = {  # index
+            cid: i
+            for i, cid in enumerate(self.client_infos.keys())
         }
-        self.N=len(self.client_infos)
+        self.N = len(self.client_infos)
 
         for client_id in client_infos:
             if client_id not in self.trust_scores:
-                self.trust_scores[client_id] = 0.5 
+                self.trust_scores[client_id] = INITIAL_TRUST
 
-        
-   
     def client_clustering(
-        self,
-        min_samples=3,
-        xi=0.05,
-        min_cluster_size=None,
-        assignment_threshold=0.7
+            self,
+            min_samples=OPTICS_MIN_SAMPLES,
+            xi=OPTICS_XI,
+            min_cluster_size=OPTICS_MIN_CLUSTER_SIZE,
+            assignment_threshold=NOISE_ASSIGNMENT_THRESHOLD,
     ):
 
-        (   self.distance_matrix,
-            self.clusters,
-            self.medoids,
-            self.cluster_samples_counts,
-            self.cluster_data_shares
-        ) = client_clustering(self.client_infos, min_samples, xi, min_cluster_size, assignment_threshold)
-        self.k=len(self.clusters)
-        self.M=max(
+        (self.distance_matrix,
+         self.clusters,
+         self.medoids,
+         self.cluster_samples_counts,
+         self.cluster_data_shares
+         ) = client_clustering(self.client_infos, min_samples, xi, min_cluster_size, assignment_threshold)
+        self.k = len(self.clusters)
+        self.M = max(
             self.k,
-            round(self.N * 0.3)
+            round(self.N * PARTICIPATION_RATIO)
         )
 
-        
-
-    def main_and_backup_client_selection( 
-        self,
-        alpha=0.5,
-        backup_ratio=0.5,
-        random_ratio=0.5,
+    def main_and_backup_client_selection(
+            self,
+            alpha=SELECTION_ALPHA,
+            backup_ratio=BACKUP_RATIO,
+            random_ratio=RANDOM_RATIO,
     ):
 
         (
@@ -117,38 +129,92 @@ class Server:
         )
 
     def receive_client_update(
-        self,
-        client_id,
-        update
+            self,
+            client_id,
+            update
     ):
 
         for clients in self.main_clients.values():
             if client_id in clients:
-
                 self.main_updates[client_id] = update
                 return
 
         for clients in self.backup_clients.values():
             if client_id in clients:
-
                 self.backup_updates[client_id] = update
                 return
 
+    def prepare_backup_request(
+            self
+    ):
+        """
+        Determine which clusters need backup updates.
+        Returns dict: {cluster_id: [backup_client_ids]}.
+        """
+        from evaluation.evaluate_updates.trust_score import (
+            MIN_REFERENCE_CLIENTS,
+        )
 
+        requirements = {}
+
+        for cluster_id in self.clusters:
+            main_count = sum(
+                1
+                for cid
+                in self.main_clients.get(
+                    cluster_id, []
+                )
+                if cid in self.main_updates
+            )
+
+            if main_count < MIN_REFERENCE_CLIENTS:
+                backups = [
+                    cid
+                    for cid
+                    in self.backup_clients.get(
+                        cluster_id, []
+                    )
+                    if cid not in self.backup_updates
+                ]
+
+                if backups:
+                    requirements[
+                        cluster_id
+                    ] = backups
+
+        return requirements
+
+    def request_backup_updates(
+            self,
+            cluster_id,
+            client_id,
+            update
+    ):
+        """
+        Receive a single backup client's update on demand.
+        """
+        self.backup_updates[
+            client_id
+        ] = update
 
     def trust_evaluation_and_backup_replacement(
-        self,
-        t_near=0.7,
-        lambda_trust=0.5,
-        alpha=0.5
+            self,
+            t_near=T_NEAR,
+            lambda_trust=LAMBDA_TRUST,
+            trust_threshold_value=TRUST_THRESHOLD,
+            alpha=SELECTION_ALPHA,
     ):
-       
+
         trust_threshold = {
-            cluster_id: 0.5
+            cluster_id: trust_threshold_value
             for cluster_id in self.clusters.keys()
         }
 
-        self.trust_scores, self.accepted_clients = (
+        (
+            self.trust_scores,
+            self.accepted_clients,
+            self.backup_requirements,
+        ) = (
             trust_evaluation_and_backup_replacement(
                 self.clusters,
                 self.main_clients,
@@ -182,12 +248,13 @@ class Server:
         self.client_weights = {}
         self.cluster_updates = {}
         self.global_update = None
+        self.backup_requirements = {}
 
     def create_training_package(
-        self,
-        local_epochs,
-        batch_size,
-        learning_rate
+            self,
+            local_epochs,
+            batch_size,
+            learning_rate
     ):
 
         return {
@@ -200,7 +267,7 @@ class Server:
 
     def aggregate(
             self,
-            trim_ratio=0.2
+            trim_ratio=TRIM_RATIO,
     ):
 
         self.client_weights = compute_client_weights(
@@ -240,12 +307,10 @@ class Server:
             self.global_update
         )
 
-
         self.model_relative_change = (
                 update_norm
                 / (previous_model_norm + 1e-12)
         )
-
 
         self.global_model = apply_model_update(
             self.global_model,
@@ -253,9 +318,6 @@ class Server:
         )
 
         return self.global_model
-
-
-
 
     def get_model_state(self):
 
@@ -270,8 +332,8 @@ class Server:
             self.global_model,
             self.test_dataset
         )
-        
 
-    
+
+
 
 

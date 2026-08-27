@@ -18,10 +18,12 @@ parser.add_argument(
     required=True
 )
 
+from config import SERVER_URL
+
 parser.add_argument(
     "--server",
     type=str,
-    default="http://127.0.0.1:8000"
+    default=SERVER_URL
 )
 
 args = parser.parse_args()

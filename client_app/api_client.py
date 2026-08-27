@@ -1,9 +1,10 @@
 import requests
 import torch
 from models.model import MNISTCNN
+from config import SERVER_URL as _DEFAULT_SERVER_URL
 
 
-SERVER_URL = "http://127.0.0.1:8000"
+SERVER_URL = _DEFAULT_SERVER_URL
 
 
 def set_server_url(url):

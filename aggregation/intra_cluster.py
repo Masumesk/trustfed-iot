@@ -1,5 +1,7 @@
 import numpy as np
 
+from config import MIN_REFERENCE_CLIENTS
+
 
 def get_client_update(
     client_id,
@@ -107,7 +109,7 @@ def aggregate_clusters(
         if len(updates) == 0:
             continue
 
-        if len(updates) < 3:
+        if len(updates) < MIN_REFERENCE_CLIENTS:
             # weighted mean fallback
             result = np.zeros_like(
                 next(iter(updates.values()))

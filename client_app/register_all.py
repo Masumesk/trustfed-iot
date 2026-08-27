@@ -3,7 +3,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-from config import NUM_CLIENTS
+from config import NUM_CLIENTS, SERVER_URL
 
 
 parser = argparse.ArgumentParser()
@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--server",
     type=str,
-    default="http://127.0.0.1:8000"
+    default=SERVER_URL
 )
 
 args = parser.parse_args()

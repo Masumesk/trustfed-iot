@@ -307,5 +307,11 @@ pyrightconfig.json
 
 datasets/**/*
 !datasets/**/
-!datasets/**/.gitkeep.idea/
+!datasets/**/.gitkeep
+
+results/**/*
+!results/**/
+!results/.gitkeep
+
+.idea/
 .vscode/

@@ -1,15 +1,15 @@
 import numpy as np
 from torch.utils.data import Subset
 
-# from main import indices
+from config import NUM_CLIENTS, DIRICHLET_ALPHA, MIN_SAMPLES, DATA_SEED
 
 
 def partition_dirichlet(
     dataset,
-    num_clients=20,
-    alpha=0.3,
-    min_samples=100,
-    seed=42
+    num_clients=NUM_CLIENTS,
+    alpha=DIRICHLET_ALPHA,
+    min_samples=MIN_SAMPLES,
+    seed=DATA_SEED
 ):
 
    # Split dataset among clients using Dirichlet Label Skew.
@@ -72,8 +72,8 @@ def partition_dirichlet(
 
 def partition_iid(
         dataset,
-        num_clients=20,
-        seed=42
+        num_clients=NUM_CLIENTS,
+        seed=DATA_SEED
 ):
     rng=np.random.default_rng(seed)
 

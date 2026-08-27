@@ -1,6 +1,6 @@
 import numpy as np
 
-MIN_REFERENCE_CLIENTS = 3
+from config import MIN_REFERENCE_CLIENTS
 
 def compute_median_update(cluster_id, cluster_updates,
                           medoids, distance_matrix, t_near,client_to_index):

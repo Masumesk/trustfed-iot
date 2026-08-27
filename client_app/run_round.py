@@ -17,6 +17,7 @@ from config import (
     DIRICHLET_ALPHA,
     MIN_SAMPLES,
     NUM_CLIENTS,
+    SERVER_URL,
     TRAINING_SEED,
     get_malicious_ids,
 )
@@ -39,7 +40,7 @@ parser.add_argument(
 parser.add_argument(
     "--server",
     type=str,
-    default="http://127.0.0.1:8000",
+    default=SERVER_URL,
 )
 
 args = parser.parse_args()

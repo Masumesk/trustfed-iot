@@ -1,3 +1,5 @@
+from config import MIN_REFERENCE_CLIENTS
+
 from evaluation.evaluate_updates.trust_score import (
     compute_median_update,
     compute_A_i,
@@ -33,6 +35,7 @@ def trust_evaluation_and_backup_replacement(
 
 
     cluster_updates = {}
+    backup_requirements = {}
 
     for cluster_id in clusters:
 
@@ -45,15 +48,13 @@ def trust_evaluation_and_backup_replacement(
         ):
 
             if client_id in main_updates:
-
                 updates.append(
                     main_updates[client_id]
                 )
 
 
-        # Backup updates
-        # Backup updates
-        if len(updates) < 3:
+        # Use already-available backup updates
+        if len(updates) < MIN_REFERENCE_CLIENTS:
 
             for client_id in backup_clients.get(
                     cluster_id,
@@ -65,13 +66,29 @@ def trust_evaluation_and_backup_replacement(
                         backup_updates[client_id]
                     )
 
-                if len(updates) >= 3:
+                if len(updates) >= MIN_REFERENCE_CLIENTS:
                     break
-
 
         cluster_updates[
             cluster_id
         ] = updates
+
+        # If still not enough, request missing backups
+        if len(updates) < MIN_REFERENCE_CLIENTS:
+
+            needed = [
+                cid
+                for cid
+                in backup_clients.get(
+                    cluster_id, []
+                )
+                if cid not in backup_updates
+            ]
+
+            if needed:
+                backup_requirements[
+                    cluster_id
+                ] = needed
 
 
     evaluated_clients = set()
@@ -287,5 +304,6 @@ def trust_evaluation_and_backup_replacement(
 
     return (
         trust_scores,
-        accepted_clients
+        accepted_clients,
+        backup_requirements
     )

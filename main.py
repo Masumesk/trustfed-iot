@@ -8,9 +8,9 @@ import requests
 from evaluation.csv_output import save_round_to_csv
 
 from config import (MODEL_CHANGE_THRESHOLD, NUM_ROUNDS, PATIENCE,
-                    VAL_LOSS_CHANGE_THRESHOLD, get_malicious_ids)
+                    SERVER_URL, VAL_LOSS_CHANGE_THRESHOLD, get_malicious_ids)
 
-SERVER = "http://127.0.0.1:8000"
+SERVER = SERVER_URL
 
 
 previous_val_loss = None
@@ -151,13 +151,8 @@ for round_id in range(
         )
 
 
-    selected_clients = sorted(
-        set(
-            main_ids
-            +
-            backup_ids
-        )
-    )
+    # Only main clients train in phase 1
+    selected_clients = sorted(main_ids)
 
 
     print(
@@ -166,7 +161,7 @@ for round_id in range(
     )
 
     print(
-        "Backup clients:",
+        "Backup clients (if needed):",
         backup_ids
     )
 
@@ -188,8 +183,7 @@ for round_id in range(
         )
     )
 
-    # Parallel local training
-
+    # Phase 1: only main clients train and send updates
 
     with ThreadPoolExecutor(
         max_workers=len(
@@ -213,11 +207,10 @@ for round_id in range(
 
 
     print(
-        "\nAll selected clients finished"
+        "\nAll main clients finished"
     )
 
-    # Trust + aggregation
-
+    # Trust evaluation + aggregation (may request backups)
 
     response = requests.post(
         f"{SERVER}/aggregate"
@@ -229,6 +222,76 @@ for round_id in range(
         response.json()
     )
 
+    # Phase 2: backups needed
+    if (
+        aggregation_result.get("status")
+        == "backup_needed"
+    ):
+
+        backup_requirements = (
+            aggregation_result[
+                "backup_requirements"
+            ]
+        )
+
+        print(
+            "\nBackup needed for clusters:",
+            list(
+                backup_requirements.keys()
+            )
+        )
+
+        # Flatten all backup client IDs
+        needed_backup_ids = []
+        for cluster_backups in (
+            backup_requirements.values()
+        ):
+            needed_backup_ids.extend(
+                cluster_backups
+            )
+
+        needed_backup_ids = sorted(
+            set(needed_backup_ids)
+        )
+
+        print(
+            "Training backup clients:",
+            needed_backup_ids
+        )
+
+        # Train backup clients
+        with ThreadPoolExecutor(
+            max_workers=len(
+                needed_backup_ids
+            )
+        ) as executor:
+
+            futures = [
+                executor.submit(
+                    run_client,
+                    client_id
+                )
+                for client_id
+                in needed_backup_ids
+            ]
+
+            for future in futures:
+                future.result()
+
+        print(
+            "\nBackup clients finished"
+        )
+
+        # Second aggregation pass
+        response = requests.post(
+            f"{SERVER}/aggregate"
+        )
+
+        response.raise_for_status()
+
+        aggregation_result = (
+            response.json()
+        )
 
     print(
         "Accepted clients:",
@@ -278,7 +341,7 @@ for round_id in range(
     )
 
     selected_malicious = sorted(
-        set(selected_clients)
+        set(main_ids + backup_ids)
         &
         malicious_ids
     )

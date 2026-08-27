@@ -3,6 +3,13 @@ from pydantic import BaseModel
 from federated.server import Server
 from data import load_mnist
 
+from config import (
+    LOCAL_EPOCHS,
+    BATCH_SIZE,
+    LEARNING_RATE,
+    MIN_REFERENCE_CLIENTS,
+)
+
 import numpy as np
 
 
@@ -58,8 +65,8 @@ def register_client(info: ClientInfo):
 
 @app.post("/prepare_round")
 def prepare_round():
-    if len(server.client_infos) < 3:
-        return {"status": "waiting", "registered": len(server.client_infos), "expected": 3}
+    if len(server.client_infos) < MIN_REFERENCE_CLIENTS:
+        return {"status": "waiting", "registered": len(server.client_infos), "expected": MIN_REFERENCE_CLIENTS}
 
     server.receive_client_distributions(server.client_infos)
     server.client_clustering()
@@ -84,9 +91,9 @@ def get_model(client_id: int):
     return {
         "client_id": client_id,
         "global_model": server.get_model_state(),
-        "local_epochs": 1,
-        "batch_size": 32,
-        "learning_rate": 0.01
+        "local_epochs": LOCAL_EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "learning_rate": LEARNING_RATE
     }
 
 
@@ -95,7 +102,15 @@ def receive_update(data: ClientUpdate):
 
     selected = get_selected_client_ids(server)
 
-    if data.client_id not in selected:
+    # Also accept backup clients that were trained on demand
+    all_backup_ids = set()
+    for clients in server.backup_clients.values():
+        all_backup_ids.update(clients)
+
+    if (
+        data.client_id not in selected
+        and data.client_id not in all_backup_ids
+    ):
         return {
             "status": "rejected_not_selected",
             "client_id": data.client_id
@@ -109,12 +124,42 @@ def receive_update(data: ClientUpdate):
 @app.post("/aggregate")
 def aggregate():
     server.trust_evaluation_and_backup_replacement()
+
+    # Phase 1: backups needed — return requirements
+    if server.backup_requirements:
+        return {
+            "status": "backup_needed",
+            "backup_requirements": server.backup_requirements,
+        }
+
+    # Phase 2: all backups available — run aggregation
     server.aggregate()
     return {
         "status": "aggregation completed",
         "accepted_clients": server.accepted_clients,
         "trust_scores": server.trust_scores,
-        "model_relative_change": server.model_relative_change
+        "model_relative_change": server.model_relative_change,
+    }
+
+
+class BackupUpdate(BaseModel):
+    client_id: int
+    update: list
+
+
+@app.post("/request_backup_updates")
+def request_backup_updates(data: BackupUpdate):
+    """
+    Receive a single backup client's update on demand.
+    """
+    server.request_backup_updates(
+        cluster_id=None,
+        client_id=data.client_id,
+        update=np.array(data.update),
+    )
+    return {
+        "status": "backup_update_received",
+        "client_id": data.client_id,
     }
 
 
