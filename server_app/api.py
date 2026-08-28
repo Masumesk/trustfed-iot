@@ -3,14 +3,19 @@ from pydantic import BaseModel
 from federated.server import Server
 from data import load_mnist
 
+import torch
 from config import (
     LOCAL_EPOCHS,
     BATCH_SIZE,
     LEARNING_RATE,
     MIN_REFERENCE_CLIENTS,
+    MODEL_SEED,
 )
 
 import numpy as np
+
+
+torch.manual_seed(MODEL_SEED)
 
 
 class ClientUpdate(BaseModel):
@@ -36,7 +41,8 @@ def get_selected_client_ids(server):
 
 
 server = Server()
-_, test_dataset = load_mnist()
+_, val_dataset, test_dataset = load_mnist()
+server.val_dataset = val_dataset
 server.test_dataset = test_dataset
 app = FastAPI(title="TrustFed IoT Server")
 
@@ -164,8 +170,14 @@ def request_backup_updates(data: BackupUpdate):
 
 
 @app.get("/evaluate")
-def evaluate():
-    return server.evaluate()
+def evaluate(use_val: bool = True):
+    return server.evaluate(use_val=use_val)
+
+
+@app.get("/evaluate_final")
+def evaluate_final():
+    """Final evaluation on test set (use only after parameter selection)."""
+    return server.evaluate(use_val=False)
 
 
 @app.get("/round_selection")

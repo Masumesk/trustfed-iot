@@ -275,6 +275,8 @@ def main():
     print(f"Sampler: {args.sampler}")
     print(f"Database: {db_path}")
     print(f"Completed trials so far: {len(study.trials)}")
+    print(f"\n⚠️  Tuning on VALIDATION set (no data leakage)")
+    print(f"   Use /evaluate_final for test set after selecting params")
 
     # run optimization
     study.optimize(

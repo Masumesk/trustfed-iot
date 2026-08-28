@@ -33,7 +33,7 @@ current_round = 0
 torch.manual_seed(MODEL_SEED)
 global_model = MNISTCNN()
 
-_, test_dataset = load_mnist()
+_, _, test_dataset = load_mnist()
 
 NUM_SELECTED = round(
     NUM_CLIENTS * PARTICIPATION_RATIO

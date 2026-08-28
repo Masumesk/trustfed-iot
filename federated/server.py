@@ -70,6 +70,7 @@ class Server:
         self.global_model = MNISTCNN()
 
         # evaluation
+        self.val_dataset = None
         self.test_dataset = None
 
     def receive_client_distributions(self, client_infos):
@@ -326,11 +327,16 @@ class Server:
             for k, v in self.global_model.state_dict().items()
         }
 
-    def evaluate(self):
-
+    def evaluate(self, use_val=True):
+        """
+        Evaluate model.
+        use_val=True: use validation set (for training/early stopping)
+        use_val=False: use test set (for final evaluation only)
+        """
+        dataset = self.val_dataset if use_val else self.test_dataset
         return evaluate_model(
             self.global_model,
-            self.test_dataset
+            dataset
         )
 
 

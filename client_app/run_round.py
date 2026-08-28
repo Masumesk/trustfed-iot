@@ -57,7 +57,7 @@ is_malicious = client_id in malicious_ids
 
 # Recreate the same deterministic non-IID local partition
 
-train_dataset, _ = load_mnist()
+train_dataset, _, _ = load_mnist()
 
 client_indices = partition_dirichlet(
     dataset=train_dataset,

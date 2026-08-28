@@ -32,7 +32,7 @@ client_id = args.id
 
 set_server_url(args.server)
 
-train_dataset, _ = load_mnist()
+train_dataset, _, _ = load_mnist()
 
 with open("data/partition_cache.pkl", "rb") as f:
     client_indices = pickle.load(f)

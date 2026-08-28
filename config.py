@@ -36,6 +36,7 @@ SELECTION_SEED = _env_int("SELECTION_SEED", 42)
 
 
 # Data distribution
+VAL_RATIO = _env_float("VAL_RATIO", 0.2)
 
 
 DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.3)
@@ -45,7 +46,7 @@ DATA_SEED = _env_int("DATA_SEED", 42)
 
 # Attack configuration
 
-ATTACK_TYPE = os.getenv("ATTACK_TYPE", "label_flip")
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
 
@@ -71,30 +72,30 @@ def get_malicious_ids():
 
 
 # OPTICS / clustering
-OPTICS_MIN_SAMPLES = _env_int("OPTICS_MIN_SAMPLES", 3)
-OPTICS_XI = _env_float("OPTICS_XI", 0.05)
+OPTICS_MIN_SAMPLES = _env_int("OPTICS_MIN_SAMPLES", 6)
+OPTICS_XI = _env_float("OPTICS_XI", 0.10)
 OPTICS_MIN_CLUSTER_SIZE = None
 NOISE_ASSIGNMENT_THRESHOLD = _env_float(
     "NOISE_ASSIGNMENT_THRESHOLD",
-    0.7,
+    0.5,
 )
 
 # Trust evaluation
 MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 3)
 
 # Main / backup client selection
-SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.5)
+SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.15)
 BACKUP_RATIO = _env_float("BACKUP_RATIO", 0.5)
-RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.5)
+RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.7)
 
 # Trust evaluation
-T_NEAR = _env_float("T_NEAR", 0.7)
-LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.5)
-TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.5)
+T_NEAR = _env_float("T_NEAR", 0.9)
+LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.85)
+TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.4)
 INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
 
 # Robust intra-cluster aggregation
-TRIM_RATIO = _env_float("TRIM_RATIO", 0.2)
+TRIM_RATIO = _env_float("TRIM_RATIO", 0.05)
 
 
 

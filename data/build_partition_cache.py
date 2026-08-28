@@ -8,7 +8,7 @@ from config import (
     DATA_SEED,
 )
 
-train_dataset, _ = load_mnist()
+train_dataset, _, _ = load_mnist()
 
 client_indices = partition_dirichlet(
     dataset=train_dataset,
