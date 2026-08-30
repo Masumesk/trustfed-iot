@@ -1,4 +1,5 @@
 import argparse
+import pickle
 import random
 
 import numpy as np
@@ -22,7 +23,7 @@ from config import (
     get_malicious_ids,
 )
 from data import load_mnist
-from data.partition import partition_dirichlet
+# from data.partition import partition_dirichlet
 from federated.client import Client
 from evaluation.evaluate_updates.model_update import compute_model_update
 
@@ -57,15 +58,20 @@ is_malicious = client_id in malicious_ids
 
 # Recreate the same deterministic non-IID local partition
 
+# train_dataset, _, _ = load_mnist()
+
+# client_indices = partition_dirichlet(
+#     dataset=train_dataset,
+#     num_clients=NUM_CLIENTS,
+#     alpha=DIRICHLET_ALPHA,
+#     min_samples=MIN_SAMPLES,
+#     seed=DATA_SEED,
+# )
+
 train_dataset, _, _ = load_mnist()
 
-client_indices = partition_dirichlet(
-    dataset=train_dataset,
-    num_clients=NUM_CLIENTS,
-    alpha=DIRICHLET_ALPHA,
-    min_samples=MIN_SAMPLES,
-    seed=DATA_SEED,
-)
+with open("data/partition_cache.pkl", "rb") as f:
+    client_indices = pickle.load(f)
 
 client = Client(
     client_id=client_id,

@@ -49,7 +49,11 @@ class Client:
 
 
     def local_train(self, model, epochs, batch_size, lr):
-        local_model = copy.deepcopy(model)
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        local_model = copy.deepcopy(model).to(device)
 
         client_dataset = self.get_subset()
 
@@ -74,6 +78,9 @@ class Client:
         for epoch in range(epochs):
 
             for images, labels in client_loader:
+
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
 
                 if self.malicious and self.attack_type == "label_flip":
                     labels = label_flip_attack(labels, self.num_classes)
