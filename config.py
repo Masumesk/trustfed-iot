@@ -29,11 +29,11 @@ LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1)
 BATCH_SIZE = _env_int("BATCH_SIZE", 32)
 LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
 
-# Number of persistent client-training processes
 CLIENT_WORKERS = _env_int(
     "CLIENT_WORKERS",
     2,
 )
+
 
 # Reproducibility
 MODEL_SEED = _env_int("MODEL_SEED", 42)
@@ -109,7 +109,7 @@ TRIM_RATIO = _env_float("TRIM_RATIO", 0.05)
 
 MODEL_CHANGE_THRESHOLD = _env_float(
     "MODEL_CHANGE_THRESHOLD",
-    0.009,
+    0.007,
 )
 
 VAL_LOSS_CHANGE_THRESHOLD = _env_float(
