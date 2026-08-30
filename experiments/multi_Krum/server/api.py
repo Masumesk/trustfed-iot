@@ -33,6 +33,7 @@ current_round = 0
 
 torch.manual_seed(MODEL_SEED)
 global_model = MNISTCNN()
+_model_state_cache = None
 
 _, val_dataset, test_dataset = load_mnist()
 NUM_SELECTED = round(
@@ -115,10 +116,19 @@ def get_model(client_id: int):
             "round": current_round,
         }
 
-    model = {
-        name: value.tolist()
-        for name, value in global_model.state_dict().items()
-    }
+    global _model_state_cache
+
+    if _model_state_cache is None:
+
+        _model_state_cache = {
+            name:
+                value.detach().cpu().tolist()
+
+            for name, value
+            in global_model.state_dict().items()
+        }
+
+    model = _model_state_cache
 
     return {
         "selected": True,
@@ -153,6 +163,8 @@ def receive_update(data: ClientUpdate):
 @app.post("/aggregate")
 def aggregate():
 
+    global _model_state_cache
+
     missing_clients = sorted(
         set(selected_clients) - set(updates.keys())
     )
@@ -185,6 +197,8 @@ def aggregate():
         global_model,
         aggregated_update,
     )
+
+    _model_state_cache = None
 
     return {
         "round": current_round,

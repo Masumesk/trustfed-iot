@@ -36,9 +36,32 @@ def weighted_trimmed_mean(
         np.floor(trim_ratio * n_clients)
     )
 
-    # Cannot trim if too few clients
+    # Cannot trim if too few clients check!!
     if 2 * trim_count >= n_clients:
         trim_count = 0
+
+
+    if trim_count == 0:
+
+        weights = np.asarray(
+            [
+                client_weights[cid]
+                for cid in client_ids
+            ],
+            dtype=updates.dtype,
+        )
+
+        weights = (
+            weights / weights.sum()
+        )
+
+        return np.sum(
+            updates * weights[:, None],
+            axis=0,
+        )
+
+
+    result = np.zeros(n_params)
 
     result = np.zeros(n_params)
 

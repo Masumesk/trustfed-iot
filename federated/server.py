@@ -69,6 +69,8 @@ class Server:
         # global model
         self.global_model = MNISTCNN()
 
+        self._model_state_cache = None
+
         # evaluation
         self.val_dataset = None
         self.test_dataset = None
@@ -327,15 +329,24 @@ class Server:
             self.global_model,
             self.global_update
         )
+        
+        self._model_state_cache = None
 
         return self.global_model
 
     def get_model_state(self):
 
-        return {
-            k: v.cpu().tolist()
-            for k, v in self.global_model.state_dict().items()
-        }
+        if self._model_state_cache is None:
+
+            self._model_state_cache = {
+                k:
+                    v.detach().cpu().tolist()
+
+                for k, v
+                in self.global_model.state_dict().items()
+            }
+
+        return self._model_state_cache
 
     def evaluate(self, use_val=True):
         """

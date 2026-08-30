@@ -90,7 +90,7 @@ def wait_for_server(url: str, process: subprocess.Popen, log_path: Path, timeout
         except requests.RequestException as exc:
             last_error = exc
 
-        time.sleep(1)
+        time.sleep(0.1)
 
     raise TimeoutError(
         f"Server did not become ready within {timeout}s at {url}. "

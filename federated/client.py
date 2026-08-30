@@ -47,11 +47,12 @@ class Client:
             self.indices
         )
 
-
+    
     def local_train(self, model, epochs, batch_size, lr):
         device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
+        print("Training device:", device)
 
         local_model = copy.deepcopy(model).to(device)
 

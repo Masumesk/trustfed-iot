@@ -69,13 +69,33 @@ def register_client(info: ClientInfo):
     return {"status": "registered", "client_id": info.client_id}
 
 
+@app.post("/initialize_clustering")
+def initialize_clustering():
+
+    if len(server.client_infos) < MIN_REFERENCE_CLIENTS:
+        return {
+            "status": "waiting",
+            "registered": len(server.client_infos),
+            "expected": MIN_REFERENCE_CLIENTS
+        }
+
+   
+    server.receive_client_distributions(
+        server.client_infos
+    )
+
+    server.client_clustering()
+
+    return {
+        "status": "clustering initialized",
+        "clusters": server.clusters
+    }
+
+
 @app.post("/prepare_round")
 def prepare_round():
-    if len(server.client_infos) < MIN_REFERENCE_CLIENTS:
-        return {"status": "waiting", "registered": len(server.client_infos), "expected": MIN_REFERENCE_CLIENTS}
 
-    server.receive_client_distributions(server.client_infos)
-    server.client_clustering()
+
     server.main_and_backup_client_selection()
 
     return {
@@ -84,7 +104,6 @@ def prepare_round():
         "main_clients": server.main_clients,
         "backup_clients": server.backup_clients
     }
-
 
 @app.get("/model/{client_id}")
 def get_model(client_id: int):
