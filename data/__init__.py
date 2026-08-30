@@ -18,14 +18,14 @@ def load_mnist(root="./datasets", val_ratio=0.2, seed=42):
     train_dataset = datasets.MNIST(
         root=root,
         train=True,
-        download=False,
+        download=True,
         transform=transform
     )
 
     test_dataset = datasets.MNIST(
         root=root,
         train=False,
-        download=False,
+        download=True,
         transform=transform
     )
 
