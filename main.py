@@ -487,11 +487,7 @@ for round_id in range(
         break
 
 
-    else:
 
-        stable_checks = 0
-
-        previous_val_loss = None
 
 
     print(

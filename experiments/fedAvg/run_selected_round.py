@@ -1,542 +1,120 @@
-import argparse
-import json
-import subprocess
-import sys
-from concurrent.futures import ThreadPoolExecutor
+import os
+import numpy as np
 
-import requests
 
-from evaluation.csv_output import save_round_to_csv
+def _env_int(name, default):
+    return int(os.getenv(name, str(default)))
 
-from config import (
-    MODEL_CHANGE_THRESHOLD,
-    NUM_ROUNDS,
-    PATIENCE,
-    VAL_LOSS_CHANGE_THRESHOLD,
-    get_malicious_ids,
+
+def _env_float(name, default):
+    return float(os.getenv(name, str(default)))
+
+
+def _env_str(name, default):
+    return os.getenv(name, str(default))
+
+
+# Server
+SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
+
+
+# Federated configuration
+
+NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
+PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.3)
+
+NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
+
+LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1)
+BATCH_SIZE = _env_int("BATCH_SIZE", 32)
+LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
+
+# Reproducibility
+MODEL_SEED = _env_int("MODEL_SEED", 42)
+TRAINING_SEED = _env_int("TRAINING_SEED", 42)
+SELECTION_SEED = _env_int("SELECTION_SEED", 42)
+
+
+# Data distribution
+VAL_RATIO = _env_float("VAL_RATIO", 0.2)
+
+
+DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.3)
+MIN_SAMPLES = _env_int("MIN_SAMPLES", 100)
+DATA_SEED = _env_int("DATA_SEED", 42)
+
+
+# Attack configuration
+
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
+MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
+MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
+
+
+def get_malicious_ids():
+    rng = np.random.RandomState(MALICIOUS_SEED)
+
+    num_malicious = int(
+        NUM_CLIENTS * MALICIOUS_RATIO
+    )
+
+    malicious_ids = rng.choice(
+        NUM_CLIENTS,
+        num_malicious,
+        replace=False,
+    )
+
+    return set(
+        int(client_id)
+        for client_id in malicious_ids
+    )
+
+
+
+# OPTICS / clustering
+OPTICS_MIN_SAMPLES = _env_int("OPTICS_MIN_SAMPLES", 3)
+OPTICS_XI = _env_float("OPTICS_XI", 0.05)
+OPTICS_MIN_CLUSTER_SIZE = None
+NOISE_ASSIGNMENT_THRESHOLD = _env_float(
+    "NOISE_ASSIGNMENT_THRESHOLD",
+    0.75,
 )
 
+# Trust evaluation
+MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 3)
 
-parser = argparse.ArgumentParser()
+# Main / backup client selection
+SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.85)
+BACKUP_RATIO = _env_float("BACKUP_RATIO", 0.5)
+RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.65)
 
-parser.add_argument(
-    "--server",
-    type=str,
-    default="http://127.0.0.1:8001",
+# Trust evaluation
+T_NEAR = _env_float("T_NEAR", 0.85)
+LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
+TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.4)
+INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
+
+# Robust intra-cluster aggregation
+TRIM_RATIO = _env_float("TRIM_RATIO", 0.05)
+
+
+
+# Convergence
+
+MODEL_CHANGE_THRESHOLD = _env_float(
+    "MODEL_CHANGE_THRESHOLD",
+    0.009,
 )
 
-parser.add_argument(
-    "--rounds",
-    type=int,
-    default=NUM_ROUNDS,
+VAL_LOSS_CHANGE_THRESHOLD = _env_float(
+    "VAL_LOSS_CHANGE_THRESHOLD",
+    0.0095,
 )
 
-args = parser.parse_args()
+PATIENCE = _env_int("PATIENCE", 3)
 
-server_url = args.server.rstrip("/")
-num_rounds = args.rounds
 
-malicious_ids = set(
-    get_malicious_ids()
-)
+# Multi-Krum baseline
 
+MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
-def run_client(client_id):
-
-    print(
-        f"\nRunning client {client_id}"
-    )
-
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "client_app.run_round",
-            "--id",
-            str(client_id),
-            "--server",
-            server_url,
-        ],
-        check=True,
-    )
-
-    return client_id
-
-
-def run_one_round(
-    previous_val_loss,
-    stable_checks,
-):
-
-    response = requests.post(
-        f"{server_url}/start_round"
-    )
-    response.raise_for_status()
-
-    round_info = response.json()
-
-    round_id = round_info["round"]
-
-    selected_clients = round_info[
-        "selected_clients"
-    ]
-
-    selected_malicious = [
-        client_id
-        for client_id in selected_clients
-        if client_id in malicious_ids
-    ]
-
-    print("\n" + "=" * 70)
-    print(f"ROUND {round_id}")
-    print("=" * 70)
-
-    print(
-        f"Selected clients:   "
-        f"{selected_clients}"
-    )
-
-    print(
-        f"Selected malicious: "
-        f"{selected_malicious}"
-    )
-
-    with ThreadPoolExecutor(
-        max_workers=len(
-            selected_clients
-        )
-    ) as executor:
-
-        futures = [
-            executor.submit(
-                run_client,
-                client_id,
-            )
-            for client_id
-            in selected_clients
-        ]
-
-        for future in futures:
-            future.result()
-
-    print(
-        "\nAll selected clients finished "
-        "and sent their updates."
-    )
-
-    print(
-        "\nRunning FedAvg aggregation..."
-    )
-
-    response = requests.post(
-        f"{server_url}/aggregate"
-    )
-    response.raise_for_status()
-
-    aggregation_result = response.json()
-
-    print("\nAggregation result:")
-
-    print(
-        json.dumps(
-            aggregation_result,
-            indent=2,
-        )
-    )
-
-    relative_change = float(
-        aggregation_result[
-            "relative_change"
-        ]
-    )
-
-    malicious_kept = list(
-        selected_malicious
-    )
-
-    malicious_rejected = []
-
-    val_accuracy = None
-    val_loss = None
-    val_loss_change = None
-
-    if (
-        relative_change
-        < MODEL_CHANGE_THRESHOLD
-    ):
-
-        print(
-            "\nEvaluating global model "
-            "on VALIDATION set..."
-        )
-
-        response = requests.get(
-            f"{server_url}/evaluate"
-        )
-
-        response.raise_for_status()
-
-        evaluation = response.json()
-
-        val_accuracy = float(
-            evaluation["accuracy"]
-        )
-
-        val_loss = float(
-            evaluation["loss"]
-        )
-
-        if previous_val_loss is not None:
-
-            val_loss_change = abs(
-                val_loss
-                - previous_val_loss
-            )
-
-            if (
-                val_loss_change
-                < VAL_LOSS_CHANGE_THRESHOLD
-            ):
-                stable_checks += 1
-
-            else:
-                stable_checks = 0
-
-        previous_val_loss = val_loss
-
-    else:
-
-        stable_checks = 0
-        previous_val_loss = None
-
-        print(
-            "\nValidation evaluation skipped."
-        )
-
-    converged = (
-        stable_checks >= PATIENCE
-    )
-
-    print("\n" + "-" * 70)
-
-    print(
-        f"ROUND {round_id} SUMMARY"
-    )
-
-    print("-" * 70)
-
-    print(
-        f"Selected clients:       "
-        f"{selected_clients}"
-    )
-
-    print(
-        f"Selected malicious:     "
-        f"{selected_malicious}"
-    )
-
-    print(
-        f"Malicious aggregated:   "
-        f"{malicious_kept}"
-    )
-
-    print(
-        f"Relative change:        "
-        f"{relative_change:.6f}"
-    )
-
-    if val_accuracy is None:
-
-        print(
-            "Validation Accuracy:    SKIPPED"
-        )
-
-        print(
-            "Validation Loss:        SKIPPED"
-        )
-
-        print(
-            "Validation loss change: N/A"
-        )
-
-    else:
-
-        print(
-            f"Validation Accuracy:    "
-            f"{val_accuracy:.4f}"
-        )
-
-        print(
-            f"Validation Loss:        "
-            f"{val_loss:.6f}"
-        )
-
-        if val_loss_change is None:
-
-            print(
-                "Validation loss change: N/A"
-            )
-
-        else:
-
-            print(
-                f"Validation loss change: "
-                f"{val_loss_change:.6f}"
-            )
-
-    print(
-        f"Stable:                 "
-        f"{stable_checks}/{PATIENCE}"
-    )
-
-    print("-" * 70)
-
-    save_round_to_csv(
-        "results/fedavg.csv",
-        {
-            "round":
-                round_id,
-
-            "val_accuracy":
-                val_accuracy,
-
-            "val_loss":
-                val_loss,
-
-            "relative_change":
-                relative_change,
-
-            "selected_malicious":
-                len(
-                    selected_malicious
-                ),
-
-            "malicious_kept":
-                len(
-                    malicious_kept
-                ),
-
-            "malicious_rejected":
-                len(
-                    malicious_rejected
-                ),
-        }
-    )
-
-    return {
-        "round":
-            round_id,
-
-        "selected_clients":
-            selected_clients,
-
-        "selected_malicious":
-            selected_malicious,
-
-        "malicious_kept":
-            malicious_kept,
-
-        "malicious_rejected":
-            malicious_rejected,
-
-        "val_accuracy":
-            val_accuracy,
-
-        "val_loss":
-            val_loss,
-
-        "relative_change":
-            relative_change,
-
-        "val_loss_change":
-            val_loss_change,
-
-        "previous_val_loss":
-            previous_val_loss,
-
-        "stable_checks":
-            stable_checks,
-
-        "converged":
-            converged,
-    }
-
-
-results = []
-
-previous_val_loss = None
-stable_checks = 0
-converged = False
-
-
-for _ in range(num_rounds):
-
-    result = run_one_round(
-        previous_val_loss=
-            previous_val_loss,
-
-        stable_checks=
-            stable_checks,
-    )
-
-    results.append(result)
-
-    previous_val_loss = result[
-        "previous_val_loss"
-    ]
-
-    stable_checks = result[
-        "stable_checks"
-    ]
-
-    if result["converged"]:
-
-        converged = True
-
-        print(
-            f"\nConverged at round "
-            f"{result['round']}"
-        )
-
-        break
-
-
-print("\n" + "=" * 90)
-print("EXPERIMENT SUMMARY")
-print("=" * 90)
-
-for result in results:
-
-    if result["val_accuracy"] is None:
-
-        val_accuracy_text = "SKIPPED"
-        val_loss_text = "SKIPPED"
-
-    else:
-
-        val_accuracy_text = (
-            f"{result['val_accuracy']:.4f}"
-        )
-
-        val_loss_text = (
-            f"{result['val_loss']:.6f}"
-        )
-
-    print(
-        f"Round {result['round']:3d} | "
-        f"val_accuracy="
-        f"{val_accuracy_text} | "
-        f"val_loss="
-        f"{val_loss_text} | "
-        f"change="
-        f"{result['relative_change']:.6f} | "
-        f"stable="
-        f"{result['stable_checks']}/{PATIENCE} | "
-        f"malicious selected="
-        f"{len(result['selected_malicious'])} | "
-        f"malicious aggregated="
-        f"{len(result['malicious_kept'])}"
-    )
-
-print("=" * 90)
-
-
-if converged:
-
-    print("\n" + "=" * 70)
-    print("FINAL EVALUATION ON TEST SET")
-    print("=" * 70)
-
-    response = requests.get(
-        f"{server_url}/evaluate_final"
-    )
-
-    response.raise_for_status()
-
-    test_result = response.json()
-
-    test_accuracy = float(
-        test_result["accuracy"]
-    )
-
-    test_loss = float(
-        test_result["loss"]
-    )
-
-    print(
-        f"Test Accuracy: "
-        f"{test_accuracy:.4f}"
-    )
-
-    print(
-        f"Test Loss: "
-        f"{test_loss:.6f}"
-    )
-
-    if "macro_f1" in test_result:
-
-        print(
-            f"Macro F1: "
-            f"{test_result['macro_f1']:.4f}"
-        )
-
-    if "balanced_accuracy" in test_result:
-
-        print(
-            f"Balanced Accuracy: "
-            f"{test_result['balanced_accuracy']:.4f}"
-        )
-
-    if (
-        "worst_class_accuracy"
-        in test_result
-    ):
-
-        print(
-            f"Worst-class Accuracy: "
-            f"{test_result['worst_class_accuracy']:.4f}"
-        )
-
-    save_round_to_csv(
-        "results/fedavg_final_test.csv",
-        {
-            "round":
-                results[-1]["round"],
-
-            "test_accuracy":
-                test_accuracy,
-
-            "test_loss":
-                test_loss,
-
-            "macro_f1":
-                test_result.get(
-                    "macro_f1"
-                ),
-
-            "balanced_accuracy":
-                test_result.get(
-                    "balanced_accuracy"
-                ),
-
-            "worst_class_accuracy":
-                test_result.get(
-                    "worst_class_accuracy"
-                ),
-        }
-    )
-
-else:
-
-    print("\n" + "=" * 70)
-
-    print(
-        "TRAINING FINISHED "
-        "WITHOUT CONVERGENCE"
-    )
-
-    print(
-        "Final TEST set was not evaluated."
-    )
-
-    print("=" * 70)
