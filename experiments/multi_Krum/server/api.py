@@ -34,8 +34,7 @@ current_round = 0
 torch.manual_seed(MODEL_SEED)
 global_model = MNISTCNN()
 
-_, _, test_dataset = load_mnist()
-
+_, val_dataset, test_dataset = load_mnist()
 NUM_SELECTED = round(
     NUM_CLIENTS * PARTICIPATION_RATIO
 )
@@ -199,42 +198,21 @@ def aggregate():
 
 
 @app.get("/evaluate")
-def evaluate_global_model():
+def evaluate():
+
+    result = evaluate_model(
+        global_model,
+        val_dataset,
+    )
+
+    return result
+
+@app.get("/evaluate_final")
+def evaluate_final():
 
     result = evaluate_model(
         global_model,
         test_dataset,
     )
 
-    return {
-        "round":
-            current_round,
-
-        "accuracy":
-            float(
-                result["accuracy"]
-            ),
-
-        "loss":
-            float(
-                result["loss"]
-            ),
-
-        "balanced_accuracy":
-            float(
-                result["balanced_accuracy"]
-            ),
-
-        "worst_class_accuracy":
-            float(
-                result["worst_class_accuracy"]
-            ),
-
-        "class_accuracy_std":
-            float(
-                result["class_accuracy_std"]
-            ),
-
-        "per_class_accuracy":
-            result["per_class_accuracy"],
-    }
+    return result

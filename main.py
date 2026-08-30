@@ -56,6 +56,7 @@ def run_client(client_id):
 
 
 # Federated rounds
+converged = False
 
 for round_id in range(
     1,
@@ -322,22 +323,75 @@ for round_id in range(
 
     # Global evaluation
 
+    val_accuracy = None
+    val_loss = None
+    val_loss_change = None
 
-    response = requests.get(
-        f"{SERVER}/evaluate"
-    )
+    if (
+            model_relative_change
+            <
+            MODEL_CHANGE_THRESHOLD
+    ):
 
-    response.raise_for_status()
+        response = requests.get(
+            f"{SERVER}/evaluate"
+        )
 
-    evaluation = response.json()
+        response.raise_for_status()
 
+        evaluation = response.json()
 
-    val_accuracy = (
-        evaluation["accuracy"]
-    )
+        val_accuracy = (
+            evaluation["accuracy"]
+        )
 
-    val_loss = (
-        evaluation["loss"]
+        val_loss = (
+            evaluation["loss"]
+        )
+
+        if previous_val_loss is not None:
+
+            val_loss_change = abs(
+                val_loss
+                -
+                previous_val_loss
+            )
+
+            print(
+                "Validation loss change:",
+                val_loss_change
+            )
+
+            if (
+                    val_loss_change
+                    <
+                    VAL_LOSS_CHANGE_THRESHOLD
+            ):
+
+                stable_checks += 1
+
+            else:
+
+                stable_checks = 0
+
+        previous_val_loss = val_loss
+
+        print(
+            f"Stable checks: "
+            f"{stable_checks}/{PATIENCE}"
+        )
+
+    else:
+
+        stable_checks = 0
+        previous_val_loss = None
+
+        print(
+            "Validation evaluation skipped."
+        )
+
+    round_converged = (
+            stable_checks >= PATIENCE
     )
 
     selected_malicious = sorted(
@@ -394,81 +448,43 @@ for round_id in range(
         }
     )
 
+    if val_accuracy is not None:
 
-    print(
-        f"Global Accuracy: "
-        f"{val_accuracy:.4f}"
-    )
+        print(
+            f"Global Accuracy: "
+            f"{val_accuracy:.4f}"
+        )
 
-    print(
-        f"Global Loss: "
-        f"{val_loss:.6f}"
-    )
+        print(
+            f"Global Loss: "
+            f"{val_loss:.6f}"
+        )
+
+    else:
+
+        print(
+            "Global Accuracy: SKIPPED"
+        )
+
+        print(
+            "Global Loss: SKIPPED"
+        )
 
 
     # Stopping criterion
 
-    if (
-        model_relative_change
-        <
-        MODEL_CHANGE_THRESHOLD
-    ):
-
-        if previous_val_loss is not None:
-
-            val_loss_change = abs(
-                val_loss
-                -
-                previous_val_loss
-            )
-
-
-            print(
-                "Validation loss change:",
-                val_loss_change
-            )
-
-
-            if (
-                val_loss_change
-                <
-                VAL_LOSS_CHANGE_THRESHOLD
-            ):
-
-                stable_checks += 1
-
-            else:
-
-                stable_checks = 0
-
-
-        previous_val_loss = (
-            val_loss
-        )
-
+    if round_converged:
 
         print(
-            f"Stable checks: "
-            f"{stable_checks}/{PATIENCE}"
+            "\nTraining stopped:"
         )
 
+        print(
+            "Convergence criteria satisfied."
+        )
 
-        if (
-            stable_checks
-            >=
-            PATIENCE
-        ):
-
-            print(
-                "\nTraining stopped:"
-            )
-
-            print(
-                "Convergence criteria "
-                "satisfied."
-            )
-
-            break
+        converged = True
+        break
 
 
     else:
@@ -483,3 +499,77 @@ for round_id in range(
     )
 
     time.sleep(1)
+
+# Final evaluation on held-out TEST set
+
+if converged:
+
+    print("\n========================================")
+    print("FINAL EVALUATION ON TEST SET")
+    print("========================================")
+
+    response = requests.get(
+        f"{SERVER}/evaluate_final"
+    )
+
+    response.raise_for_status()
+
+    test_evaluation = response.json()
+
+    test_accuracy = test_evaluation["accuracy"]
+    test_loss = test_evaluation["loss"]
+
+    test_macro_f1 = test_evaluation.get(
+        "macro_f1"
+    )
+
+    test_balanced_accuracy = test_evaluation.get(
+        "balanced_accuracy"
+    )
+
+    test_worst_class_accuracy = test_evaluation.get(
+        "worst_class_accuracy"
+    )
+
+
+    print(
+        f"Test Accuracy: "
+        f"{test_accuracy:.4f}"
+    )
+
+    print(
+        f"Test Loss: "
+        f"{test_loss:.6f}"
+    )
+
+
+    if test_macro_f1 is not None:
+
+        print(
+            f"Macro F1: "
+            f"{test_macro_f1:.4f}"
+        )
+
+
+    if test_balanced_accuracy is not None:
+
+        print(
+            f"Balanced Accuracy: "
+            f"{test_balanced_accuracy:.4f}"
+        )
+
+
+    if test_worst_class_accuracy is not None:
+
+        print(
+            f"Worst-class Accuracy: "
+            f"{test_worst_class_accuracy:.4f}"
+        )
+
+
+else:
+
+    print("\n========================================")
+    print("TRAINING FINISHED WITHOUT CONVERGENCE")
+    print("Final test was not evaluated.")
+    print("========================================")

@@ -23,7 +23,7 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
 PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.3)
 
-NUM_ROUNDS = _env_int("NUM_ROUNDS", 50)
+NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
 
 LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1)
 BATCH_SIZE = _env_int("BATCH_SIZE", 32)
@@ -72,25 +72,25 @@ def get_malicious_ids():
 
 
 # OPTICS / clustering
-OPTICS_MIN_SAMPLES = _env_int("OPTICS_MIN_SAMPLES", 6)
-OPTICS_XI = _env_float("OPTICS_XI", 0.10)
+OPTICS_MIN_SAMPLES = _env_int("OPTICS_MIN_SAMPLES", 3)
+OPTICS_XI = _env_float("OPTICS_XI", 0.05)
 OPTICS_MIN_CLUSTER_SIZE = None
 NOISE_ASSIGNMENT_THRESHOLD = _env_float(
     "NOISE_ASSIGNMENT_THRESHOLD",
-    0.5,
+    0.75,
 )
 
 # Trust evaluation
 MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 3)
 
 # Main / backup client selection
-SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.15)
+SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.85)
 BACKUP_RATIO = _env_float("BACKUP_RATIO", 0.5)
-RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.7)
+RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.65)
 
 # Trust evaluation
-T_NEAR = _env_float("T_NEAR", 0.9)
-LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.85)
+T_NEAR = _env_float("T_NEAR", 0.85)
+LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
 TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.4)
 INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
 
@@ -103,12 +103,12 @@ TRIM_RATIO = _env_float("TRIM_RATIO", 0.05)
 
 MODEL_CHANGE_THRESHOLD = _env_float(
     "MODEL_CHANGE_THRESHOLD",
-    0.01,
+    0.009,
 )
 
 VAL_LOSS_CHANGE_THRESHOLD = _env_float(
     "VAL_LOSS_CHANGE_THRESHOLD",
-    0.01,
+    0.0095,
 )
 
 PATIENCE = _env_int("PATIENCE", 3)
@@ -117,3 +117,4 @@ PATIENCE = _env_int("PATIENCE", 3)
 # Multi-Krum baseline
 
 MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
+

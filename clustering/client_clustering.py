@@ -22,7 +22,7 @@ def client_clustering(
     assignment_threshold
 ):
 
-    client_ids = list(client_infos.keys())
+    client_ids = sorted(list(client_infos.keys()))   # changed
     client_to_index = { #index
         cid: idx
         for idx, cid in enumerate(client_ids)

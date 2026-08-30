@@ -76,10 +76,20 @@ class Server:
     def receive_client_distributions(self, client_infos):
 
         self.client_infos = client_infos
-        self.client_to_index = {  # index
+        sorted_client_ids = sorted(
+            self.client_infos.keys()
+        )
+
+        self.client_to_index = {
             cid: i
-            for i, cid in enumerate(self.client_infos.keys())
+            for i, cid in enumerate(
+                sorted_client_ids
+            )
         }
+        # self.client_to_index = {  # index
+        #     cid: i
+        #     for i, cid in enumerate(self.client_infos.keys())
+        # }
         self.N = len(self.client_infos)
 
         for client_id in client_infos:
