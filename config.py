@@ -52,7 +52,7 @@ DATA_SEED = _env_int("DATA_SEED", 42)
 
 # Attack configuration
 
-ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", "gaussian")
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
 
@@ -96,12 +96,12 @@ RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.65)
 
 # Trust evaluation
 T_NEAR = _env_float("T_NEAR", 0.85)
-LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
+LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.7)
 TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.4)
 INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
 
 # Robust intra-cluster aggregation
-TRIM_RATIO = _env_float("TRIM_RATIO", 0.05)
+TRIM_RATIO = _env_float("TRIM_RATIO", 0.2)
 
 
 
@@ -117,7 +117,7 @@ VAL_LOSS_CHANGE_THRESHOLD = _env_float(
     0.0095,
 )
 
-PATIENCE = _env_int("PATIENCE", 3)
+PATIENCE = _env_int("PATIENCE", 1000)
 
 
 # Multi-Krum baseline
