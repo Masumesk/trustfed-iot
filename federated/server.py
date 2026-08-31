@@ -17,6 +17,8 @@ from config import (
     TRIM_RATIO,
 )
 
+
+from evaluation.class_fairness import ( calculate_representation_fairness,)
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
 from evaluation.global_evaluate import evaluate_model
@@ -360,7 +362,15 @@ class Server:
             dataset
         )
 
+    def get_representation_fairness(self):
 
+        main_ids = []
 
+        for client_ids in self.main_clients.values():
+            main_ids.extend(client_ids)
 
+        return calculate_representation_fairness(
+            main_ids,
+            self.client_infos,
+        )
 

@@ -201,4 +201,27 @@ def evaluate_final():
 
 @app.get("/round_selection")
 def round_selection():
-    return {"main_clients": server.main_clients, "backup_clients": server.backup_clients}
+
+    fairness = (
+        server.get_representation_fairness()
+    )
+
+    return {
+        "main_clients":
+            server.main_clients,
+
+        "backup_clients":
+            server.backup_clients,
+
+        "representation_fairness":
+            fairness["fairness"],
+
+        "hellinger_distance":
+            fairness["hellinger_distance"],
+
+        "global_distribution":
+            fairness["global_distribution"],
+
+        "selected_distribution":
+            fairness["selected_distribution"],
+    }

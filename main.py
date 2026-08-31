@@ -6,6 +6,7 @@ from client_app.persistent_worker import (
     run_client_round_task,
 )
 from config import (
+    DIRICHLET_ALPHA,
     CLIENT_WORKERS,
     MODEL_CHANGE_THRESHOLD,
     NUM_ROUNDS,
@@ -202,6 +203,14 @@ def main():
                 "backup_clients"
             ]
 
+            representation_fairness = selection[
+                "representation_fairness"
+            ]
+
+            hellinger_distance = selection[
+                "hellinger_distance"
+            ]
+
 
             main_ids = []
             backup_ids = []
@@ -258,6 +267,15 @@ def main():
                 ),
             )
 
+            print(
+                f"Representation Fairness: "
+                f"{representation_fairness * 100:.2f}%"
+            )
+
+            print(
+                f"Hellinger Distance: "
+                f"{hellinger_distance:.4f}"
+            )
 
             
             # Phase 1
@@ -573,6 +591,12 @@ def main():
                     "relative_change":
                         model_relative_change,
 
+                    "representation_fairness":
+                        representation_fairness,
+
+                    "hellinger_distance":
+                        hellinger_distance,
+
                     "selected_malicious":
                         len(
                             selected_malicious
@@ -587,6 +611,7 @@ def main():
                         len(
                             malicious_rejected
                         ),
+
                 },
             )
 
@@ -650,119 +675,111 @@ def main():
 
     
     # Final evaluation on held-out TEST set
-    
 
     if converged:
-
         print(
-            "\n========================================"
+            "\nTraining finished by convergence."
         )
-        print(
-            "FINAL EVALUATION ON TEST SET"
-        )
-        print(
-            "========================================"
-        )
-
-
-        response = requests.get(
-            f"{SERVER}/evaluate_final"
-        )
-
-        response.raise_for_status()
-
-        test_evaluation = (
-            response.json()
-        )
-
-
-        test_accuracy = (
-            test_evaluation["accuracy"]
-        )
-
-        test_loss = (
-            test_evaluation["loss"]
-        )
-
-
-        test_macro_f1 = (
-            test_evaluation.get(
-                "macro_f1"
-            )
-        )
-
-        test_balanced_accuracy = (
-            test_evaluation.get(
-                "balanced_accuracy"
-            )
-        )
-
-        test_worst_class_accuracy = (
-            test_evaluation.get(
-                "worst_class_accuracy"
-            )
-        )
-
-
-        print(
-            f"Test Accuracy: "
-            f"{test_accuracy:.4f}"
-        )
-
-        print(
-            f"Test Loss: "
-            f"{test_loss:.6f}"
-        )
-
-
-        if test_macro_f1 is not None:
-
-            print(
-                f"Macro F1: "
-                f"{test_macro_f1:.4f}"
-            )
-
-
-        if (
-            test_balanced_accuracy
-            is not None
-        ):
-
-            print(
-                f"Balanced Accuracy: "
-                f"{test_balanced_accuracy:.4f}"
-            )
-
-
-        if (
-            test_worst_class_accuracy
-            is not None
-        ):
-
-            print(
-                f"Worst-class Accuracy: "
-                f"{test_worst_class_accuracy:.4f}"
-            )
-
-
     else:
-
         print(
-            "\n========================================"
-        )
-        print(
-            "TRAINING FINISHED WITHOUT "
-            "CONVERGENCE"
-        )
-        print(
-            "Final test was not evaluated."
-        )
-        print(
-            "========================================"
+            "\nTraining finished after "
+            "reaching the maximum number of rounds."
         )
 
+    print(
+        "\n========================================"
+    )
+    print(
+        "FINAL EVALUATION ON TEST SET"
+    )
+    print(
+        "========================================"
+    )
 
+    response = requests.get(
+        f"{SERVER}/evaluate_final"
+    )
 
+    response.raise_for_status()
+
+    test_evaluation = response.json()
+
+    test_accuracy = (
+        test_evaluation["accuracy"]
+    )
+
+    test_loss = (
+        test_evaluation["loss"]
+    )
+
+    test_macro_f1 = (
+        test_evaluation.get(
+            "macro_f1"
+        )
+    )
+
+    test_balanced_accuracy = (
+        test_evaluation.get(
+            "balanced_accuracy"
+        )
+    )
+
+    test_worst_class_accuracy = (
+        test_evaluation.get(
+            "worst_class_accuracy"
+        )
+    )
+
+    print(
+        f"Test Accuracy: "
+        f"{test_accuracy:.4f}"
+    )
+
+    print(
+        f"Test Loss: "
+        f"{test_loss:.6f}"
+    )
+
+    if test_macro_f1 is not None:
+        print(
+            f"Macro F1: "
+            f"{test_macro_f1:.4f}"
+        )
+
+    if test_balanced_accuracy is not None:
+        print(
+            f"Balanced Accuracy: "
+            f"{test_balanced_accuracy:.4f}"
+        )
+
+    if test_worst_class_accuracy is not None:
+        print(
+            f"Worst-class Accuracy: "
+            f"{test_worst_class_accuracy:.4f}"
+        )
+
+    # save_round_to_csv(
+    #     "results/heterogeneity.csv",
+    #     {
+    #         "dirichlet_alpha":
+    #             DIRICHLET_ALPHA,
+    #
+    #         "test_accuracy":
+    #             test_accuracy,
+    #
+    #         "test_loss":
+    #             test_loss,
+    #
+    #         "macro_f1":
+    #             test_macro_f1,
+    #
+    #         "balanced_accuracy":
+    #             test_balanced_accuracy,
+    #
+    #         "worst_class_accuracy":
+    #             test_worst_class_accuracy,
+    #     },
+    # )
 # Required for ProcessPoolExecutor
 
 
