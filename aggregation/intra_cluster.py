@@ -32,13 +32,25 @@ def weighted_trimmed_mean(
 
     n_clients, n_params = updates.shape
 
+    # trim_count = int(
+    #     np.floor(trim_ratio * n_clients)
+    # )
+
+    # Cannot trim if too few clients check!!
+    # if 2 * trim_count >= n_clients:
+    #     trim_count = 0
+
     trim_count = int(
         np.floor(trim_ratio * n_clients)
     )
 
-    # Cannot trim if too few clients check!!
-    if 2 * trim_count >= n_clients:
-        trim_count = 0
+    if n_clients >= 3:
+        trim_count = max(1, trim_count)
+
+    trim_count = min(
+        trim_count,
+        (n_clients - 1) // 2
+    )
 
 
     if trim_count == 0:
@@ -61,7 +73,7 @@ def weighted_trimmed_mean(
         )
 
 
-    result = np.zeros(n_params)
+    # result = np.zeros(n_params)
 
     result = np.zeros(n_params)
 
