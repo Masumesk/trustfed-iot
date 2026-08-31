@@ -545,130 +545,116 @@ def main():
 
     
 
-    if converged:
 
-        print("\n" + "=" * 70)
+    print("\n" + "=" * 70)
 
-        print(
-            "FINAL EVALUATION ON TEST SET"
-        )
+    print(
+        "FINAL EVALUATION ON TEST SET"
+    )
 
-        print("=" * 70)
-
-
-        response = requests.get(
-            f"{server_url}/evaluate_final"
-        )
-
-        response.raise_for_status()
-
-        test_result = (
-            response.json()
-        )
+    print("=" * 70)
 
 
-        test_accuracy = float(
-            test_result[
-                "accuracy"
-            ]
-        )
+    response = requests.get(
+        f"{server_url}/evaluate_final"
+    )
+
+    response.raise_for_status()
+
+    test_result = (
+        response.json()
+    )
 
 
-        test_loss = float(
-            test_result[
-                "loss"
-            ]
-        )
+    test_accuracy = float(
+        test_result[
+            "accuracy"
+        ]
+    )
 
 
-        print(
-            f"Test Accuracy: "
-            f"{test_accuracy:.4f}"
-        )
-
-        print(
-            f"Test Loss: "
-            f"{test_loss:.6f}"
-        )
+    test_loss = float(
+        test_result[
+            "loss"
+        ]
+    )
 
 
-        if (
-            "macro_f1"
-            in test_result
-        ):
+    print(
+        f"Test Accuracy: "
+        f"{test_accuracy:.4f}"
+    )
 
-            print(
-                f"Macro F1: "
-                f"{test_result['macro_f1']:.4f}"
-            )
-
-
-        if (
-            "balanced_accuracy"
-            in test_result
-        ):
-
-            print(
-                f"Balanced Accuracy: "
-                f"{test_result['balanced_accuracy']:.4f}"
-            )
+    print(
+        f"Test Loss: "
+        f"{test_loss:.6f}"
+    )
 
 
-        if (
-            "worst_class_accuracy"
-            in test_result
-        ):
-
-            print(
-                f"Worst-class Accuracy: "
-                f"{test_result['worst_class_accuracy']:.4f}"
-            )
-
-
-        save_round_to_csv(
-            "results/fedavg_final_test.csv",
-            {
-                "round":
-                    results[-1]["round"],
-
-                "test_accuracy":
-                    test_accuracy,
-
-                "test_loss":
-                    test_loss,
-
-                "macro_f1":
-                    test_result.get(
-                        "macro_f1"
-                    ),
-
-                "balanced_accuracy":
-                    test_result.get(
-                        "balanced_accuracy"
-                    ),
-
-                "worst_class_accuracy":
-                    test_result.get(
-                        "worst_class_accuracy"
-                    ),
-            }
-        )
-
-
-    else:
-
-        print("\n" + "=" * 70)
+    if (
+        "macro_f1"
+        in test_result
+    ):
 
         print(
-            "TRAINING FINISHED "
-            "WITHOUT CONVERGENCE"
+            f"Macro F1: "
+            f"{test_result['macro_f1']:.4f}"
         )
+
+
+    if (
+        "balanced_accuracy"
+        in test_result
+    ):
 
         print(
-            "Final TEST set was not evaluated."
+            f"Balanced Accuracy: "
+            f"{test_result['balanced_accuracy']:.4f}"
         )
 
-        print("=" * 70)
+
+    if (
+        "worst_class_accuracy"
+        in test_result
+    ):
+
+        print(
+            f"Worst-class Accuracy: "
+            f"{test_result['worst_class_accuracy']:.4f}"
+        )
+
+
+    save_round_to_csv(
+        "results/fedavg_final_test.csv",
+        {
+            "round":
+                results[-1]["round"],
+
+            "test_accuracy":
+                test_accuracy,
+
+            "test_loss":
+                test_loss,
+
+            "macro_f1":
+                test_result.get(
+                    "macro_f1"
+                ),
+
+            "balanced_accuracy":
+                test_result.get(
+                    "balanced_accuracy"
+                ),
+
+            "worst_class_accuracy":
+                test_result.get(
+                    "worst_class_accuracy"
+                ),
+        }
+    )
+
+
+
 
 
 

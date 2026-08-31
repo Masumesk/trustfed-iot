@@ -96,12 +96,12 @@ RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.65)
 
 # Trust evaluation
 T_NEAR = _env_float("T_NEAR", 0.85)
-LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.7)
-TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.4)
+LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
+TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.35)
 INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
 
 # Robust intra-cluster aggregation
-TRIM_RATIO = _env_float("TRIM_RATIO", 0.2)
+TRIM_RATIO = _env_float("TRIM_RATIO", 0.1)
 
 
 
