@@ -1,14 +1,16 @@
 import pickle
-from data import load_mnist
+from data.load_dataset import load_dataset
 from data.partition import partition_dirichlet
 from config import (
     NUM_CLIENTS,
     DIRICHLET_ALPHA,
     MIN_SAMPLES,
     DATA_SEED,
+    DATASET,
+    
 )
 
-train_dataset, _, _ = load_mnist()
+train_dataset, _, _ = load_dataset(DATASET)
 
 client_indices = partition_dirichlet(
     dataset=train_dataset,

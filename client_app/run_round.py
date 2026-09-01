@@ -21,13 +21,15 @@ from config import (
     get_malicious_ids,
 )
 
-from data import load_mnist
+from data.load_dataset import load_dataset
 
 from evaluation.evaluate_updates.model_update import (
     compute_model_update,
 )
 
 from federated.client import Client
+
+from config import (DATASET )
 
 
 
@@ -46,7 +48,7 @@ def _ensure_worker_data():
 
     if _TRAIN_DATASET is None:
 
-        _TRAIN_DATASET, _, _ = load_mnist()
+        _TRAIN_DATASET, _, _ = load_dataset(DATASET)
 
     if _CLIENT_INDICES is None:
 

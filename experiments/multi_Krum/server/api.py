@@ -14,12 +14,14 @@ from config import (
     NUM_CLIENTS,
     PARTICIPATION_RATIO,
     SELECTION_SEED,
+    DATASET,
 )
-from data import load_mnist
+
+from data.load_dataset import load_dataset
 from evaluation.global_evaluate import evaluate_model
 from experiments.multi_Krum.multi_Krum import multi_krum
 from evaluation.evaluate_updates.model_update import apply_model_update
-from models.model import MNISTCNN
+from models.get_model import get_model
 
 app = FastAPI()
 
@@ -32,10 +34,10 @@ updates = {}
 current_round = 0
 
 torch.manual_seed(MODEL_SEED)
-global_model = MNISTCNN()
+global_model = get_model()
 _model_state_cache = None
 
-_, val_dataset, test_dataset = load_mnist()
+_, val_dataset, test_dataset = load_dataset(DATASET)
 NUM_SELECTED = round(
     NUM_CLIENTS * PARTICIPATION_RATIO
 )

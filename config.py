@@ -21,13 +21,13 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 # Federated configuration
 
 NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
-PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.3)
+PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
 
-LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1)
-BATCH_SIZE = _env_int("BATCH_SIZE", 32)
-LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
+LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1) 
+BATCH_SIZE = _env_int("BATCH_SIZE", 32) 
+# LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
 
 CLIENT_WORKERS = _env_int(
     "CLIENT_WORKERS",
@@ -52,7 +52,7 @@ DATA_SEED = _env_int("DATA_SEED", 42)
 
 # Attack configuration
 
-ATTACK_TYPE = os.getenv("ATTACK_TYPE", "gaussian")
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
 
@@ -107,10 +107,10 @@ TRIM_RATIO = _env_float("TRIM_RATIO", 0.2)
 
 # Convergence
 
-MODEL_CHANGE_THRESHOLD = _env_float(
-    "MODEL_CHANGE_THRESHOLD",
-    0.007,
-)
+# MODEL_CHANGE_THRESHOLD = _env_float(
+#     "MODEL_CHANGE_THRESHOLD",
+#     0.007,
+# )
 
 VAL_LOSS_CHANGE_THRESHOLD = _env_float(
     "VAL_LOSS_CHANGE_THRESHOLD",
@@ -123,4 +123,23 @@ PATIENCE = _env_int("PATIENCE", 1000)
 # Multi-Krum baseline
 
 MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
+
+#ِDataset
+
+DATASET = "CIFAR10"
+
+
+if DATASET == "MNIST":
+
+    LEARNING_RATE = 0.01
+    MODEL_CHANGE_THRESHOLD = 0.007
+
+
+elif DATASET == "CIFAR10":
+
+    LEARNING_RATE = 0.001
+    MODEL_CHANGE_THRESHOLD = 0.015
+
+
+
 

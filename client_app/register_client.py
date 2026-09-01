@@ -2,7 +2,7 @@ import pickle
 import argparse
 
 from federated.client import Client
-from data import load_mnist
+from data.load_dataset import load_dataset
 
 from client_app.api_client import (
     register_client,
@@ -18,7 +18,7 @@ parser.add_argument(
     required=True
 )
 
-from config import SERVER_URL
+from config import (SERVER_URL, DATASET)
 
 parser.add_argument(
     "--server",
@@ -32,7 +32,7 @@ client_id = args.id
 
 set_server_url(args.server)
 
-train_dataset, _, _ = load_mnist()
+train_dataset, _, _ = load_dataset(DATASET)
 
 with open("data/partition_cache.pkl", "rb") as f:
     client_indices = pickle.load(f)

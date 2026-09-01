@@ -27,7 +27,7 @@ from aggregation.client_weights import compute_client_weights
 from aggregation.intra_cluster import aggregate_clusters
 from aggregation.inter_cluster import inter_cluster_aggregation
 from evaluation.evaluate_updates.model_update import apply_model_update
-from models.model import MNISTCNN
+from models.get_model import get_model
 
 
 class Server:
@@ -69,7 +69,7 @@ class Server:
         self.backup_requirements = {}
 
         # global model
-        self.global_model = MNISTCNN()
+        self.global_model = get_model()
 
         self._model_state_cache = None
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from federated.server import Server
-from data import load_mnist
+from data.load_dataset import load_dataset
 
 import torch
 from config import (
@@ -10,6 +10,7 @@ from config import (
     LEARNING_RATE,
     MIN_REFERENCE_CLIENTS,
     MODEL_SEED,
+    DATASET,
 )
 
 import numpy as np
@@ -41,7 +42,7 @@ def get_selected_client_ids(server):
 
 
 server = Server()
-_, val_dataset, test_dataset = load_mnist()
+_, val_dataset, test_dataset = load_dataset(DATASET)
 server.val_dataset = val_dataset
 server.test_dataset = test_dataset
 app = FastAPI(title="TrustFed IoT Server")

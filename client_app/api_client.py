@@ -1,6 +1,6 @@
 import requests
 import torch
-from models.model import MNISTCNN
+from models.get_model import get_model
 from config import SERVER_URL as _DEFAULT_SERVER_URL
 
 
@@ -36,7 +36,7 @@ def get_training_package(client_id):
 
 def load_global_model(package):
 
-    model = MNISTCNN()
+    model = get_model()
 
     state_dict = {
         k: torch.tensor(v)

@@ -13,9 +13,10 @@ from client_app.api_client import (
 from config import (
     NUM_CLIENTS,
     SERVER_URL,
+    DATASET
 )
 
-from data import load_mnist
+from data.load_dataset import load_dataset
 
 from federated.client import Client
 
@@ -38,7 +39,7 @@ set_server_url(
 
 # Load once for all clients
 
-train_dataset, _, _ = load_mnist()
+train_dataset, _, _ = load_dataset(DATASET)
 
 
 with open(
