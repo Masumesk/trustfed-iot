@@ -25,13 +25,13 @@ PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
 
-LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1) 
+LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 2) 
 BATCH_SIZE = _env_int("BATCH_SIZE", 32) 
 # LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
 
 CLIENT_WORKERS = _env_int(
     "CLIENT_WORKERS",
-    2,
+    4,
 )
 
 
@@ -117,7 +117,7 @@ VAL_LOSS_CHANGE_THRESHOLD = _env_float(
     0.0095,
 )
 
-PATIENCE = _env_int("PATIENCE", 1000)
+PATIENCE = _env_int("PATIENCE", 3)
 
 
 # Multi-Krum baseline
@@ -126,7 +126,7 @@ MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 #ِDataset
 
-DATASET = "CIFAR10"
+DATASET = "MNIST"
 
 
 if DATASET == "MNIST":
@@ -137,7 +137,7 @@ if DATASET == "MNIST":
 
 elif DATASET == "CIFAR10":
 
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.01
     MODEL_CHANGE_THRESHOLD = 0.015
 
 

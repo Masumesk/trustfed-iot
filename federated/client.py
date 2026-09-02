@@ -65,11 +65,15 @@ class Client:
         )
 
         criterion = nn.CrossEntropyLoss()
-
+        
+        #
         optimizer = torch.optim.SGD(
             local_model.parameters(),
-            lr=lr
+            lr=lr,
+            # momentum=0.9,
+            # weight_decay=5e-4
         )
+        #
 
         local_model.train()
 
