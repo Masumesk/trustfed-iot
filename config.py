@@ -20,7 +20,7 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 
 # Federated configuration
 
-NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
+NUM_CLIENTS = _env_int("NUM_CLIENTS", 40)
 PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
@@ -45,7 +45,7 @@ SELECTION_SEED = _env_int("SELECTION_SEED", 42)
 VAL_RATIO = _env_float("VAL_RATIO", 0.2)
 
 
-DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.3)
+DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.5)
 MIN_SAMPLES = _env_int("MIN_SAMPLES", 100)
 DATA_SEED = _env_int("DATA_SEED", 42)
 
