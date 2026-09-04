@@ -21,6 +21,8 @@ from config import (
     get_malicious_ids,
 )
 
+from models.get_model import get_model
+
 from data.load_dataset import load_dataset
 
 from evaluation.evaluate_updates.model_update import (
@@ -38,6 +40,7 @@ _TRAIN_DATASET = None
 _CLIENT_INDICES = None
 _CLIENT_CACHE = {}
 _MALICIOUS_IDS = None
+_WORKER_LOCAL_MODEL = None
 
 
 def _ensure_worker_data():
@@ -48,7 +51,12 @@ def _ensure_worker_data():
 
     if _TRAIN_DATASET is None:
 
-        _TRAIN_DATASET, _, _ = load_dataset(DATASET)
+        _TRAIN_DATASET, _, _ = (
+            load_dataset(
+                DATASET,
+                load_test=False
+            )
+        )
 
     if _CLIENT_INDICES is None:
 
@@ -83,6 +91,8 @@ def _get_client(client_id):
             num_classes=10,
             malicious=is_malicious,
             attack_type=ATTACK_TYPE,
+
+            compute_distribution=False,
         )
 
     return _CLIENT_CACHE[client_id]
@@ -93,6 +103,8 @@ def run_client_round(
     client_id,
     server_url=SERVER_URL,
 ):
+
+    global _WORKER_LOCAL_MODEL
 
     set_server_url(server_url)
 
@@ -130,6 +142,19 @@ def run_client_round(
         package
     )
 
+    device = torch.device(
+        "cuda"
+        if torch.cuda.is_available()
+        else "cpu"
+    )
+
+    if _WORKER_LOCAL_MODEL is None:
+
+        _WORKER_LOCAL_MODEL = (
+            get_model()
+            .to(device)
+        )
+
 
     print(
         f"Client {client_id} | "
@@ -156,11 +181,21 @@ def run_client_round(
 
 
 
-    local_model, loss = client.local_train(
-        model=global_model,
-        epochs=package["local_epochs"],
-        batch_size=package["batch_size"],
-        lr=package["learning_rate"],
+    local_model, loss = (
+        client.local_train(
+            model=global_model,
+            epochs=package[
+                "local_epochs"
+            ],
+            batch_size=package[
+                "batch_size"
+            ],
+            lr=package[
+                "learning_rate"
+            ],
+            reusable_model=
+                _WORKER_LOCAL_MODEL,
+        )
     )
 
 

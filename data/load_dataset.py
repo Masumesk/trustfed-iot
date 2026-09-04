@@ -3,7 +3,7 @@ from torch.utils.data import Subset
 import numpy as np
 
 
-def load_dataset(name,root="./datasets", val_ratio=0.2, seed=42):
+def load_dataset(name,root="./datasets", val_ratio=0.2, seed=42,load_test=True):
 
     if name == "MNIST":
         transform = transforms.Compose([
@@ -18,12 +18,18 @@ def load_dataset(name,root="./datasets", val_ratio=0.2, seed=42):
             transform=transform
         )
 
-        test_dataset = datasets.MNIST(
-            root=root,
-            train=False,
-            download=True,
-            transform=transform
-        )
+        if load_test:
+
+            test_dataset = datasets.MNIST(
+                root=root,
+                train=False,
+                download=True,
+                transform=transform
+            )
+
+        else:
+
+            test_dataset = None
 
     elif name == "CIFAR10":
 
@@ -42,12 +48,18 @@ def load_dataset(name,root="./datasets", val_ratio=0.2, seed=42):
             transform=transform
         )
 
-        test_dataset = datasets.CIFAR10(
-            root=root,
-            train=False,
-            download=True,
-            transform=transform
-        )
+        if load_test:
+
+            test_dataset = datasets.CIFAR10(
+                root=root,
+                train=False,
+                download=True,
+                transform=transform
+            )
+
+        else:
+
+            test_dataset = None
 
     # Split train into train + validation
     rng = np.random.RandomState(seed)

@@ -2,7 +2,13 @@ import random
 
 import numpy as np
 import torch
-from fastapi import FastAPI
+import io
+
+from fastapi import (
+    FastAPI,
+    Request,
+    Response,
+)
 from pydantic import BaseModel
 
 from config import (
@@ -51,9 +57,7 @@ class ClientInfo(BaseModel):
     num_samples: int
 
 
-class ClientUpdate(BaseModel):
-    client_id: int
-    update: list[float]
+
 
 
 # API
@@ -83,6 +87,7 @@ def start_round():
     global current_round
     global selected_clients
     global updates
+    global _model_state_cache
 
     if len(clients) < NUM_SELECTED:
         raise ValueError(
@@ -91,6 +96,7 @@ def start_round():
         )
 
     current_round += 1
+    _model_state_cache = None
     updates = {}
 
     # Random selection remains independent of malicious identity.
@@ -122,45 +128,82 @@ def get_model(client_id: int):
 
     if _model_state_cache is None:
 
-        _model_state_cache = {
-            name:
-                value.detach().cpu().tolist()
+        package = {
+            "selected": True,
 
-            for name, value
-            in global_model.state_dict().items()
+            "round":
+                current_round,
+
+            "global_model": {
+                name:
+                    tensor.detach().cpu()
+
+                for name, tensor
+                in global_model
+                    .state_dict()
+                    .items()
+            },
+
+            "local_epochs":
+                LOCAL_EPOCHS,
+
+            "batch_size":
+                BATCH_SIZE,
+
+            "learning_rate":
+                LEARNING_RATE,
         }
 
-    model = _model_state_cache
+        buffer = io.BytesIO()
 
-    return {
-        "selected": True,
-        "round": current_round,
-        "global_model": model,
-        "local_epochs": LOCAL_EPOCHS,
-        "batch_size": BATCH_SIZE,
-        "learning_rate": LEARNING_RATE,
-    }
+        torch.save(
+            package,
+            buffer
+        )
+
+        _model_state_cache = (
+            buffer.getvalue()
+        )
+
+    return Response(
+        content=_model_state_cache,
+        media_type=
+            "application/octet-stream"
+    )
 
 
 @app.post("/update")
-def receive_update(data: ClientUpdate):
+async def receive_update(
+    client_id: int,
+    request: Request,
+):
 
-    if data.client_id not in selected_clients:
+    if client_id not in selected_clients:
+
         raise ValueError(
-            f"Client {data.client_id} is not selected "
+            f"Client {client_id} "
+            f"is not selected "
             f"in round {current_round}."
         )
 
-    updates[data.client_id] = np.array(
-        data.update,
-        dtype=np.float32,
+    body = await request.body()
+
+    received_update = np.frombuffer(
+        body,
+        dtype=np.float64
+    )
+
+    updates[client_id] = (
+        received_update.astype(
+            np.float32
+        )
     )
 
     return {
         "received": len(updates),
-        "expected": len(selected_clients),
+        "expected":
+            len(selected_clients),
     }
-
 
 @app.post("/aggregate")
 def aggregate():

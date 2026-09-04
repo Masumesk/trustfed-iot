@@ -73,39 +73,64 @@ def weighted_trimmed_mean(
         )
 
 
-    # result = np.zeros(n_params)
 
+    weights_all = np.asarray(
+    [
+        client_weights[cid]
+        for cid in client_ids
+    ]
+    )
+    
     result = np.zeros(n_params)
 
-    for p in range(n_params):
+    chunk_size = 65536
 
-        values = updates[:, p]
+    for start in range(
+        0,
+        n_params,
+        chunk_size
+    ):
+        end = min(
+            start + chunk_size,
+            n_params
+        )
 
-        order = np.argsort(values)
+        
+        values = updates[:, start:end]
 
-        if trim_count > 0:
-            kept_indices = order[
-                trim_count:n_clients-trim_count
-            ]
-        else:
-            kept_indices = order
+        order = np.argsort(
+            values,
+            axis=0
+        )
 
-        kept_ids = [
-            client_ids[idx]
-            for idx in kept_indices
+        kept_indices = order[
+            trim_count:
+            n_clients - trim_count,
+            :
         ]
 
-        kept_values = values[kept_indices]
+        kept_values = np.take_along_axis(
+            values,
+            kept_indices,
+            axis=0
+        )
 
-        weights = np.array([
-            client_weights[cid]
-            for cid in kept_ids
-        ])
+        kept_weights = weights_all[
+            kept_indices
+        ]
 
-        weights = weights / weights.sum()
+        kept_weights = (
+            kept_weights
+            /
+            kept_weights.sum(
+                axis=0,
+                keepdims=True
+            )
+        )
 
-        result[p] = np.sum(
-            kept_values * weights
+        result[start:end] = np.sum(
+            kept_values * kept_weights,
+            axis=0
         )
 
     return result

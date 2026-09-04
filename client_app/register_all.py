@@ -39,7 +39,7 @@ set_server_url(
 
 # Load once for all clients
 
-train_dataset, _, _ = load_dataset(DATASET)
+train_dataset, _, _ = load_dataset(DATASET ,load_test=False)
 
 
 with open(

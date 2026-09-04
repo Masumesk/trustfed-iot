@@ -14,14 +14,16 @@ from config import (
 )
 
 import numpy as np
+import io
+from fastapi import FastAPI, Request , Response
 
 
 torch.manual_seed(MODEL_SEED)
 
 
-class ClientUpdate(BaseModel):
-    client_id: int
-    update: list
+# class ClientUpdate(BaseModel):
+#     client_id: int
+#     update: list
 
 class RoundRequest(BaseModel):
     round_id: int
@@ -109,42 +111,98 @@ def prepare_round():
 @app.get("/model/{client_id}")
 def get_model(client_id: int):
 
-    selected = get_selected_client_ids(server)
+    selected = get_selected_client_ids(
+        server
+    )
 
-    if client_id not in selected:                     # ← چک جدید
-        return {"status": "not_selected", "client_id": client_id}
+    if client_id not in selected:
+        return {
+            "status": "not_selected",
+            "round": server.current_round,
+            "client_id": client_id
+        }
 
-    return {
+    package = {
         "client_id": client_id,
-        "global_model": server.get_model_state(),
-        "local_epochs": LOCAL_EPOCHS,
-        "batch_size": BATCH_SIZE,
-        "learning_rate": LEARNING_RATE
+        "round": server.current_round,
+
+        "global_model": {
+            name:
+                tensor.detach().cpu()
+            for name, tensor
+            in server.global_model
+                     .state_dict()
+                     .items()
+        },
+
+        "local_epochs":
+            LOCAL_EPOCHS,
+
+        "batch_size":
+            BATCH_SIZE,
+
+        "learning_rate":
+            LEARNING_RATE,
     }
+
+    buffer = io.BytesIO()
+
+    torch.save(
+        package,
+        buffer
+    )
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type=
+            "application/octet-stream"
+    )
 
 
 @app.post("/update")
-def receive_update(data: ClientUpdate):
+async def receive_update(
+    client_id: int,
+    request: Request
+):
 
-    selected = get_selected_client_ids(server)
+    selected = get_selected_client_ids(
+        server
+    )
 
-    # Also accept backup clients that were trained on demand
     all_backup_ids = set()
-    for clients in server.backup_clients.values():
+
+    for clients in (
+        server.backup_clients.values()
+    ):
         all_backup_ids.update(clients)
 
     if (
-        data.client_id not in selected
-        and data.client_id not in all_backup_ids
+        client_id not in selected
+        and client_id not in all_backup_ids
     ):
         return {
-            "status": "rejected_not_selected",
-            "client_id": data.client_id
+            "status":
+                "rejected_not_selected",
+            "client_id":
+                client_id
         }
 
-    server.receive_client_update(data.client_id, np.array(data.update))
+    body = await request.body()
 
-    return {"status": "update stored", "client_id": data.client_id}
+    update = np.frombuffer(
+        body,
+        dtype=np.float64
+    )
+
+    server.receive_client_update(
+        client_id,
+        update
+    )
+
+    return {
+        "status": "update stored",
+        "client_id": client_id
+    }
 
 
 @app.post("/aggregate")

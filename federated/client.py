@@ -3,9 +3,11 @@ from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from attacks.label_flip import label_flip_attack
 
+
 import copy
 import torch
 import torch.nn as nn
+
 
 class Client:
     def __init__(
@@ -16,6 +18,7 @@ class Client:
         num_classes=10,
         malicious = False,
         attack_type=None,
+        compute_distribution=True,
     ):
         self.client_id = client_id
 
@@ -24,7 +27,20 @@ class Client:
 
         self.num_samples = len(self.indices)
 
-        self.distribution = get_client_distribution(self.dataset, self.indices, self.num_samples, num_classes,)
+        if compute_distribution:
+            
+            self.distribution = (
+                get_client_distribution(
+                    self.dataset,
+                    self.indices,
+                    self.num_samples,
+                    num_classes,
+                )
+            )
+
+        else:
+
+            self.distribution = None
 
         self.training_package= None
 
@@ -48,13 +64,26 @@ class Client:
         )
 
     
-    def local_train(self, model, epochs, batch_size, lr):
+    def local_train(self, model, epochs, batch_size, lr,reusable_model=None,):
         device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
         print("Training device:", device)
 
-        local_model = copy.deepcopy(model).to(device)
+        if reusable_model is None:
+
+            local_model = (
+                copy.deepcopy(model)
+                .to(device)
+            )
+
+        else:
+
+            local_model = reusable_model
+
+            local_model.load_state_dict(
+                model.state_dict()
+            )
 
         client_dataset = self.get_subset()
 
@@ -90,7 +119,9 @@ class Client:
                 if self.malicious and self.attack_type == "label_flip":
                     labels = label_flip_attack(labels, self.num_classes)
 
-                optimizer.zero_grad()
+                optimizer.zero_grad(
+                    set_to_none=True
+                )
 
                 outputs = local_model(images)
 

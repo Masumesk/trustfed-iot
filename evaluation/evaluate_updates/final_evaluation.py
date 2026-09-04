@@ -4,6 +4,7 @@ from evaluation.evaluate_updates.trust_score import (
     compute_median_update,
     compute_A_i,
     update_trust_score,
+    compute_reference_scale
 )
 
 from evaluation.evaluate_updates.evaluate_clients import (
@@ -36,6 +37,8 @@ def trust_evaluation_and_backup_replacement(
 
     cluster_updates = {}
     backup_requirements = {}
+    median_cache = {}
+    reference_scale_cache = {}
 
     for cluster_id in clusters:
 
@@ -107,10 +110,12 @@ def trust_evaluation_and_backup_replacement(
                 medoids,
                 distance_matrix,
                 t_near,
-                client_to_index
+                client_to_index,
+                median_cache
             )
         )
 
+        
 
         print(
             f"Cluster {cluster_id} | "
@@ -135,6 +140,23 @@ def trust_evaluation_and_backup_replacement(
 
         reference_updates = (
             cluster_updates[
+                reference_cluster
+            ]
+        )
+
+        if (
+            reference_cluster
+            not in reference_scale_cache
+        ):
+            reference_scale_cache[
+                reference_cluster
+            ] = compute_reference_scale(
+                reference,
+                reference_updates
+            )
+
+        median_distance = (
+            reference_scale_cache[
                 reference_cluster
             ]
         )
@@ -187,7 +209,7 @@ def trust_evaluation_and_backup_replacement(
             A_i = compute_A_i(
                 update,
                 reference,
-                reference_updates
+                median_distance
             )
 
 
@@ -243,7 +265,7 @@ def trust_evaluation_and_backup_replacement(
             A_i = compute_A_i(
                 update,
                 reference,
-                reference_updates
+                median_distance
             )
 
 

@@ -1,5 +1,8 @@
 import requests
 import torch
+import io
+import numpy as np
+import requests
 from models.get_model import get_model
 from config import SERVER_URL as _DEFAULT_SERVER_URL
 
@@ -31,19 +34,28 @@ def get_training_package(client_id):
 
     response.raise_for_status()
 
-    return response.json()
+    content_type = response.headers.get(
+        "content-type",
+        ""
+    )
+
+    if "application/json" in content_type:
+        return response.json()
+
+    return torch.load(
+        io.BytesIO(response.content),
+        map_location="cpu",
+        weights_only=False
+    )
 
 
 def load_global_model(package):
 
     model = get_model()
 
-    state_dict = {
-        k: torch.tensor(v)
-        for k, v in package["global_model"].items()
-    }
-
-    model.load_state_dict(state_dict)
+    model.load_state_dict(
+        package["global_model"]
+    )
 
     return model
 
@@ -54,17 +66,26 @@ def send_update(
     round_id=None
 ):
 
-    payload = {
-        "client_id": client_id,
-        "update": update.tolist()
+    update_to_send = np.ascontiguousarray(
+        update,
+        dtype=np.float64
+    )
+
+    params = {
+        "client_id": client_id
     }
 
     if round_id is not None:
-        payload["round_id"] = round_id
+        params["round_id"] = round_id
 
     response = requests.post(
         f"{SERVER_URL}/update",
-        json=payload
+        params=params,
+        data=update_to_send.tobytes(),
+        headers={
+            "Content-Type":
+                "application/octet-stream"
+        }
     )
 
     response.raise_for_status()
