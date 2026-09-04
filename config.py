@@ -31,7 +31,7 @@ BATCH_SIZE = _env_int("BATCH_SIZE", 32)
 
 CLIENT_WORKERS = _env_int(
     "CLIENT_WORKERS",
-    4,
+    2,
 )
 
 
