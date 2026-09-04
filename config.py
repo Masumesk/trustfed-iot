@@ -126,7 +126,7 @@ MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 #ِDataset
 
-DATASET = "CIFAR10"
+DATASET = "MNIST"
 
 
 if DATASET == "MNIST":
