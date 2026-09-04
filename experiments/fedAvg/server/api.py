@@ -255,12 +255,25 @@ def aggregate():
         / (model_norm + 1e-12)
     )
 
+
+    relative_change = 1e12
+
     apply_model_update(
         global_model,
         aggregated_update,
     )
 
     _model_state_cache = None
+
+    if not np.isfinite(relative_change):
+    
+            print(
+                f"[WARNING] Round {current_round} | "
+                f"relative_change became {relative_change}. "
+                f"Using divergence sentinel and continuing.",
+                flush=True,
+            )
+            relative_change = 1e12
 
     return {
         "round": current_round,
