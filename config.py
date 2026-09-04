@@ -52,7 +52,7 @@ DATA_SEED = _env_int("DATA_SEED", 42)
 
 # Attack configuration
 
-ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", "gaussian")
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
 

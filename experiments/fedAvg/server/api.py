@@ -191,19 +191,13 @@ async def receive_update(
 
     body = await request.body()
 
-    # api_client فعلی تو float64 می‌فرستد
+    
     received_update = np.frombuffer(
         body,
         dtype=np.float64
     )
 
-    # FedAvg قبلی عمداً update را float32 می‌کرد.
-    # پس برای حفظ رفتار قبلی:
-    updates[client_id] = (
-        received_update.astype(
-            np.float32
-        )
-    )
+    updates[client_id] = received_update.copy()
 
     return {
         "received": len(updates),
@@ -241,22 +235,63 @@ def aggregate():
         sample_counts,
     )
 
+    if not np.isfinite(aggregated_update).all():
+        bad_count = int(
+            np.size(aggregated_update)
+            - np.count_nonzero(np.isfinite(aggregated_update))
+        )
+
+        print(
+            f"[WARNING] Round {current_round} | "
+            f"aggregated update contains "
+            f"{bad_count} non-finite values.",
+            flush=True,
+        )
+
+        return {
+            "round": current_round,
+            "relative_change": 1e12,
+            "diverged": True,
+            "reason": "non_finite_aggregated_update",
+        }
+
     
     with torch.no_grad():
-        model_norm = torch.sqrt(
-            sum(
-                torch.sum(parameter.detach() ** 2)
-                for parameter in global_model.parameters()
-            )
-        ).item()
+        model_sq_sum = sum(
+            torch.sum(
+                parameter.detach().double() ** 2
+            ).item()
+            for parameter in global_model.parameters()
+        )
 
-    relative_change = (
-        np.linalg.norm(aggregated_update)
-        / (model_norm + 1e-12)
+    model_norm = float(np.sqrt(model_sq_sum))
+
+    update_norm = float(
+        np.linalg.norm(
+            np.asarray(
+                aggregated_update,
+                dtype=np.float64,
+            )
+        )
     )
 
+    relative_change = (
+        update_norm / (model_norm + 1e-12)
+    )
 
-    relative_change = 1e12
+    if not np.isfinite(relative_change):
+        print(
+            f"[WARNING] Round {current_round} | "
+            f"relative_change became {relative_change}.",
+            flush=True,
+        )
+
+        return {
+            "round": current_round,
+            "relative_change": 1e12,
+            "diverged": True,
+            "reason": "non_finite_relative_change",
+        }
 
     apply_model_update(
         global_model,
@@ -265,15 +300,7 @@ def aggregate():
 
     _model_state_cache = None
 
-    if not np.isfinite(relative_change):
     
-            print(
-                f"[WARNING] Round {current_round} | "
-                f"relative_change became {relative_change}. "
-                f"Using divergence sentinel and continuing.",
-                flush=True,
-            )
-            relative_change = 1e12
 
     return {
         "round": current_round,
