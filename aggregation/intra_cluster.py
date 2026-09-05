@@ -44,8 +44,8 @@ def weighted_trimmed_mean(
         np.floor(trim_ratio * n_clients)
     )
 
-    if n_clients >= 3:
-        trim_count = max(1, trim_count)
+    # if n_clients >= 3:
+    #     trim_count = max(1, trim_count)
 
     trim_count = min(
         trim_count,

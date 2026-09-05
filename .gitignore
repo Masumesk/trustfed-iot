@@ -236,6 +236,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-gpu
 env/
 venv/
 ENV/
@@ -315,3 +316,7 @@ results/**/*
 
 .idea/
 .vscode/
+
+comparison_runs/**/*
+comparison_runs
+comparison_runs/**/

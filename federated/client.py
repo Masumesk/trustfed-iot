@@ -99,8 +99,8 @@ class Client:
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=lr,
-            # momentum=0.9,
-            # weight_decay=5e-4
+            momentum=0.9,
+            weight_decay=5e-4
         )
         #
 

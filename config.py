@@ -26,7 +26,7 @@ PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
 
 LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 2) 
-BATCH_SIZE = _env_int("BATCH_SIZE", 32) 
+BATCH_SIZE = _env_int("BATCH_SIZE", 64)
 # LEARNING_RATE = _env_float("LEARNING_RATE", 0.01)
 
 CLIENT_WORKERS = _env_int(
@@ -126,7 +126,7 @@ MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 #ِDataset
 
-DATASET = "MNIST"
+DATASET = "CIFAR10"
 
 
 if DATASET == "MNIST":
