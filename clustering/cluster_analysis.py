@@ -22,7 +22,7 @@ def calculate_cluster_samples_share(cluster_samples_counts):
     cluster_share = {}
 
     for cluster_id, samples_count in cluster_samples_counts.items():
-        cluster_share[cluster_id] = round((samples_count/total_data),2)
+        cluster_share[cluster_id] = (samples_count/total_data)
 
     return cluster_share
 

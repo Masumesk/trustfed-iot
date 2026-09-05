@@ -1,4 +1,5 @@
 from client_selection.selection_score import calculate_selection_scores
+from config import SUSPICIOUS_PENALTY
 
 
 def replace_backup_clients(
@@ -55,14 +56,26 @@ def replace_backup_clients(
 
 
             else:
-                candidates = [suspicious_id] + backups
+                available_backups = [
+                    client_id
+
+                    for client_id in backups
+
+                    if client_id
+                    in evaluated_backups
+                ]
+
+                candidates = (
+                    [suspicious_id]
+                    + available_backups
+                )
                 best_candidate = candidates[0]
 
                 for client_id in candidates:
                     if (trust_scores.get(client_id) > trust_scores.get(best_candidate)):
                         best_candidate = client_id
 
-                accepted_clients[cluster_id].append((best_candidate, trust_scores[best_candidate]))
+                accepted_clients[cluster_id].append((best_candidate, SUSPICIOUS_PENALTY))
 
                 if (best_candidate in backups):
                     backups.remove(best_candidate)

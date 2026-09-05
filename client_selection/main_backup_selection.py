@@ -4,6 +4,8 @@ import math
 from client_selection.cluster_client_share import calculate_cluster_client_share
 from client_selection.selection_score import calculate_selection_scores
 
+from config import SELECTION_SEED
+
 
 def main_and_backup_client_selection(
     clusters,
@@ -19,7 +21,7 @@ def main_and_backup_client_selection(
 ):
 
     
-    rng = random.Random(42 + seed) 
+    rng = random.Random(SELECTION_SEED + seed) 
 
     m_ks = calculate_cluster_client_share(clusters, cluster_data_shares, M) #number of main clients in each cluster
 
@@ -43,7 +45,7 @@ def main_and_backup_client_selection(
 
         sorted_clients = sorted(client_ids, key=selection_scores.get, reverse=True)
 
-        random_selected = rng.sample(client_ids, int(m_k*random_ratio))
+        random_selected = rng.sample(client_ids, round( m_k * random_ratio))
         selected = list(random_selected)
 
         if ( m_k - len(selected) > 0 ):

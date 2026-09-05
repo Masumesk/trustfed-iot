@@ -19,7 +19,6 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 
 
 # Federated configuration
-
 NUM_CLIENTS = _env_int("NUM_CLIENTS", 40)
 PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 
@@ -49,9 +48,13 @@ DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.5)
 MIN_SAMPLES = _env_int("MIN_SAMPLES", 100)
 DATA_SEED = _env_int("DATA_SEED", 42)
 
+# suspicious client penalty for aggregation
+SUSPICIOUS_PENALTY = _env_float(
+    "SUSPICIOUS_PENALTY",
+    0.5,
+)
 
 # Attack configuration
-
 ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
@@ -124,7 +127,7 @@ PATIENCE = _env_int("PATIENCE", 3)
 
 MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
-#ِDataset
+# Dataset
 
 DATASET = "CIFAR10"
 

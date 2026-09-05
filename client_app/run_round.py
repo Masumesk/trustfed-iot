@@ -102,6 +102,7 @@ def _get_client(client_id):
 def run_client_round(
     client_id,
     server_url=SERVER_URL,
+    send_immediately=True #backup clients send updates only if it is needed
 ):
 
     global _WORKER_LOCAL_MODEL
@@ -127,7 +128,18 @@ def run_client_round(
             f"{package.get('round')}"
         )
 
-        return client_id
+        return {
+            "client_id": client_id,
+            "round_id": int(
+                package.get(
+                    "round",
+                    0,
+                )
+            ),
+            "sent": False,
+            "update": None,
+            "selected": False,
+        }
 
 
     round_id = int(
@@ -230,14 +242,30 @@ def run_client_round(
 
 
 
-    response = send_update(
-        client_id,
-        update,
-    )
+    if send_immediately:
 
-    print(response)
+        response = send_update(
+            client_id,
+            update,
+            round_id=round_id,
+        )
 
-    return client_id
+        print(response)
+
+        return {
+            "client_id": client_id,
+            "round_id": round_id,
+            "sent": True,
+            "update": None,
+        }
+
+
+    return {
+        "client_id": client_id,
+        "round_id": round_id,
+        "sent": False,
+        "update": update,
+    }
 
 
 def main():

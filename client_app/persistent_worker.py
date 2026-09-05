@@ -1,13 +1,15 @@
+from client_app.run_round import (
+        run_client_round,
+)
+
 def run_client_round_task(
     client_id,
     server_url,
+    send_immediately=True,
 ):
-    
-    from client_app.run_round import (
-        run_client_round,
-    )
 
     return run_client_round(
         client_id,
         server_url,
+        send_immediately=send_immediately,
     )
