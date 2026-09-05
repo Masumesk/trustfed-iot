@@ -190,14 +190,10 @@ async def receive_update(
 
     received_update = np.frombuffer(
         body,
-        dtype=np.float64
+        dtype=np.float32
     )
 
-    updates[client_id] = (
-        received_update.astype(
-            np.float32
-        )
-    )
+    updates[client_id] = received_update
 
     return {
         "received": len(updates),

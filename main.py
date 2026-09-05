@@ -1,9 +1,16 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import (
+    ProcessPoolExecutor,
+    as_completed,
+)
 
 import requests
 
 from client_app.persistent_worker import (
     run_client_round_task,
+)
+from client_app.api_client import (
+    send_update,
+    set_server_url,
 )
 from config import (
     DIRICHLET_ALPHA,
@@ -25,29 +32,252 @@ SERVER = SERVER_URL
 # Run selected clients using persistent processes
 
 
-def run_clients(
+def train_main_and_backup_clients(
     executor,
-    client_ids,
+    main_ids,
+    backup_ids,
 ):
-    futures = [
-        executor.submit(
+
+    main_ids = sorted(
+        set(main_ids)
+    )
+
+    backup_ids = sorted(
+        set(backup_ids)
+        - set(main_ids)
+    )
+
+
+    main_futures = {}
+    backup_futures = {}
+
+
+    
+    # Submit Main clients
+    
+
+    for client_id in main_ids:
+
+        future = executor.submit(
             run_client_round_task,
             client_id,
             SERVER,
+            True,
         )
-        for client_id in client_ids
-    ]
 
-    for future in futures:
-        future.result()
+        main_futures[
+            client_id
+        ] = future
 
 
+    
+    # Submit Backup clients
+    
+
+    for client_id in backup_ids:
+
+        future = executor.submit(
+            run_client_round_task,
+            client_id,
+            SERVER,
+            False,
+        )
+
+        backup_futures[
+            client_id
+        ] = future
+
+
+    
+    # Wait ONLY for Main clients
+    
+
+    for client_id, future in (
+        main_futures.items()
+    ):
+
+        result = future.result()
+
+
+        if (
+            result["client_id"]
+            != client_id
+        ):
+            raise RuntimeError(
+                "Client result mismatch."
+            )
+
+
+        if not result["sent"]:
+
+            raise RuntimeError(
+                f"Main client {client_id} "
+                "did not send its update."
+            )
+
+
+    return backup_futures
+
+def send_required_backup_updates(
+    backup_requirements,
+    backup_futures,
+    round_id,
+):
+
+    required_ids = set()
+
+
+    for client_ids in (
+        backup_requirements.values()
+    ):
+
+        required_ids.update(
+            client_ids
+        )
+
+
+    for client_id in sorted(
+        required_ids
+    ):
+
+        if (
+            client_id
+            not in backup_futures
+        ):
+
+            raise RuntimeError(
+                f"Requested backup "
+                f"{client_id} was not "
+                "scheduled for training."
+            )
+
+
+        future = backup_futures[
+            client_id
+        ]
+
+
+        result = future.result()
+
+
+        if (
+            result["client_id"]
+            != client_id
+        ):
+
+            raise RuntimeError(
+                "Backup client "
+                "result mismatch."
+            )
+
+
+        if result["sent"]:
+
+            raise RuntimeError(
+                f"Backup client "
+                f"{client_id} sent "
+                "its update too early."
+            )
+
+
+        if (
+            result["round_id"]
+            != round_id
+        ):
+
+            raise RuntimeError(
+                f"Stale backup update: "
+                f"client={client_id}, "
+                f"cached_round="
+                f"{result['round_id']}, "
+                f"current_round="
+                f"{round_id}"
+            )
+
+
+        response = send_update(
+            client_id,
+            result["update"],
+            round_id=round_id,
+        )
+
+
+        print(
+            "Backup update sent:",
+            client_id,
+            response,
+        )
+
+
+
+        del backup_futures[
+            client_id
+        ]
+
+
+def finish_remaining_backups(
+    backup_futures,
+    round_id,
+):
+
+    for client_id, future in list(
+        backup_futures.items()
+    ):
+
+        result = future.result()
+
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+            raise RuntimeError(
+                f"Invalid backup result "
+                f"for client {client_id}"
+            )
+
+
+        if (
+            result["client_id"]
+            != client_id
+        ):
+            raise RuntimeError(
+                "Backup client "
+                "result mismatch."
+            )
+
+
+        if result["sent"]:
+            raise RuntimeError(
+                f"Backup client "
+                f"{client_id} sent "
+                "its update unexpectedly."
+            )
+
+
+        if (
+            result["round_id"]
+            != round_id
+        ):
+            raise RuntimeError(
+                f"Backup round mismatch: "
+                f"client={client_id}, "
+                f"result_round="
+                f"{result['round_id']}, "
+                f"expected_round="
+                f"{round_id}"
+            )
+
+
+    backup_futures.clear()
 
 # Main
-
-
 def main():
 
+    set_server_url(
+        SERVER
+    )
+    
     previous_val_loss = None
     stable_checks = 0
     converged = False
@@ -232,11 +462,9 @@ def main():
                 )
 
 
-            # Only main clients train in phase 1
+            
 
-            selected_clients = sorted(
-                main_ids
-            )
+            
 
 
             print(
@@ -279,17 +507,31 @@ def main():
 
             
             # Phase 1
-            # Main clients train
-            
+            # Main and backup clients train
+            # at the same time.
+            #
+            # Main updates are sent immediately.
+            # Backup updates are cached locally.
 
-            run_clients(
-                client_executor,
-                selected_clients,
+            backup_futures = (
+                train_main_and_backup_clients(
+                    client_executor,
+                    main_ids,
+                    backup_ids,
+                )
             )
 
 
             print(
-                "\nAll main clients finished"
+                "\nAll selected main and "
+                "backup clients finished training."
+            )
+
+            print(
+                "Cached backup updates:",
+                sorted(
+                    backup_futures.keys()
+                ),
             )
 
 
@@ -307,18 +549,30 @@ def main():
                 response.json()
             )
 
+            backup_request_cycles = 0
 
-            
-            # Phase 2
-            # Backup clients if needed
-            
 
-            if (
+            while (
                 aggregation_result.get(
                     "status"
                 )
                 == "backup_needed"
             ):
+
+                backup_request_cycles += 1
+
+                if backup_request_cycles > 3:
+                    raise RuntimeError(
+                        "Too many backup "
+                        "request cycles."
+                    )
+
+
+                stage = (
+                    aggregation_result.get(
+                        "stage"
+                    )
+                )
 
                 backup_requirements = (
                     aggregation_result[
@@ -328,55 +582,21 @@ def main():
 
 
                 print(
-                    "\nBackup needed "
-                    "for clusters:",
-                    list(
-                        backup_requirements.keys()
-                    ),
+                    "\nBackup updates requested"
+                    f" | stage={stage}"
                 )
-
-
-                # Flatten required backup IDs
-
-                needed_backup_ids = []
-
-                for cluster_backups in (
-                    backup_requirements.values()
-                ):
-                    needed_backup_ids.extend(
-                        cluster_backups
-                    )
-
-
-                needed_backup_ids = sorted(
-                    set(
-                        needed_backup_ids
-                    )
-                )
-
 
                 print(
-                    "Training backup clients:",
-                    needed_backup_ids,
+                    backup_requirements
                 )
 
 
-                # Train only required backups
-
-                run_clients(
-                    client_executor,
-                    needed_backup_ids,
+                send_required_backup_updates(
+                    backup_requirements,
+                    backup_futures,
+                    round_id,
                 )
 
-
-                print(
-                    "\nBackup clients finished"
-                )
-
-
-               
-                # Second aggregation pass
-               
 
                 response = requests.post(
                     f"{SERVER}/aggregate"
@@ -389,9 +609,20 @@ def main():
                 )
 
 
+            if (
+                aggregation_result.get(
+                    "status"
+                )
+                != "aggregation completed"
+            ):
+                raise RuntimeError(
+                    "Aggregation did not "
+                    "complete successfully: "
+                    f"{aggregation_result}"
+                )
             
-            # Aggregation result
             
+
 
             print(
                 "Accepted clients:",
@@ -648,10 +879,12 @@ def main():
                 )
 
 
-            
-            # Stopping criterion
-            
+            finish_remaining_backups(
+                backup_futures,
+                round_id,
+            )
 
+            # Stopping criterion
             if round_converged:
 
                 print(

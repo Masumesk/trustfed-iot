@@ -1,12 +1,18 @@
 import numpy as np
 
 
-def gaussian_noise_attack(update, sigma=1.0):
+def gaussian_noise_attack(
+    update,
+    sigma=1.0,
+):
 
     noise = np.random.normal(
         0,
         sigma,
-        size=update.shape
+        size=update.shape,
+    ).astype(
+        update.dtype,
+        copy=False,
     )
 
     return update + noise

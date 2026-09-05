@@ -15,6 +15,7 @@ from config import (
     TRUST_THRESHOLD,
     INITIAL_TRUST,
     TRIM_RATIO,
+    MIN_REFERENCE_CLIENTS,
 )
 
 
@@ -22,7 +23,10 @@ from evaluation.class_fairness import ( calculate_representation_fairness,)
 from clustering.client_clustering import client_clustering
 from client_selection.main_backup_selection import main_and_backup_client_selection
 from evaluation.global_evaluate import evaluate_model
-from evaluation.evaluate_updates.final_evaluation import trust_evaluation_and_backup_replacement
+from evaluation.evaluate_updates.final_evaluation import (
+    evaluate_main_clients_once,
+    evaluate_backups_and_replace_once,
+)
 from aggregation.client_weights import compute_client_weights
 from aggregation.intra_cluster import aggregate_clusters
 from aggregation.inter_cluster import inter_cluster_aggregation
@@ -67,6 +71,18 @@ class Server:
         self.global_update = None
         self.model_relative_change = None
         self.backup_requirements = {}
+        self.main_trust_evaluated = False
+        self.valid_clients = {}
+        self.suspicious_clients = {}
+        self.unresolved_clients = {}
+
+        self.round_references = {}
+
+        self.evaluated_main_clients = set()
+        self.evaluated_backups = set()
+
+        self.replacement_finalized = False
+        self.round_aggregated = False
 
         # global model
         self.global_model = get_model()
@@ -159,43 +175,86 @@ class Server:
                 self.backup_updates[client_id] = update
                 return
 
-    def prepare_backup_request(
-            self
+    def prepare_reference_backup_request(
+        self
     ):
-        """
-        Determine which clusters need backup updates.
-        Returns dict: {cluster_id: [backup_client_ids]}.
-        """
-        from evaluation.evaluate_updates.trust_score import (
-            MIN_REFERENCE_CLIENTS,
-        )
 
         requirements = {}
 
+
         for cluster_id in self.clusters:
+
             main_count = sum(
                 1
-                for cid
+                for client_id
                 in self.main_clients.get(
-                    cluster_id, []
+                    cluster_id,
+                    []
                 )
-                if cid in self.main_updates
+                if client_id
+                in self.main_updates
             )
 
-            if main_count < MIN_REFERENCE_CLIENTS:
-                backups = [
-                    cid
-                    for cid
-                    in self.backup_clients.get(
-                        cluster_id, []
-                    )
-                    if cid not in self.backup_updates
-                ]
 
-                if backups:
-                    requirements[
-                        cluster_id
-                    ] = backups
+            available_backup_count = sum(
+                1
+                for client_id
+                in self.backup_clients.get(
+                    cluster_id,
+                    []
+                )
+                if client_id
+                in self.backup_updates
+            )
+
+
+            available_count = (
+                main_count
+                +
+                available_backup_count
+            )
+
+
+            missing_count = max(
+                0,
+                MIN_REFERENCE_CLIENTS
+                -
+                available_count
+            )
+
+
+            if missing_count == 0:
+                continue
+
+
+            missing_backups = [
+                client_id
+
+                for client_id
+                in self.backup_clients.get(
+                    cluster_id,
+                    []
+                )
+
+                if client_id
+                not in self.backup_updates
+            ]
+
+
+            if missing_backups:
+
+                requirements[
+                    cluster_id
+                ] = (
+                    missing_backups[
+                        :missing_count
+                    ]
+                )
+
+
+        self.backup_requirements = (
+            requirements
+        )
 
         return requirements
 
@@ -212,44 +271,181 @@ class Server:
             client_id
         ] = update
 
-    def trust_evaluation_and_backup_replacement(
-            self,
-            t_near=T_NEAR,
-            lambda_trust=LAMBDA_TRUST,
-            trust_threshold_value=TRUST_THRESHOLD,
-            alpha=SELECTION_ALPHA,
+    def evaluate_main_trust_once(
+        self,
+        t_near=T_NEAR,
+        lambda_trust=LAMBDA_TRUST,
+        trust_threshold_value=
+            TRUST_THRESHOLD,
     ):
 
+        if self.main_trust_evaluated:
+            return
+
+
         trust_threshold = {
-            cluster_id: trust_threshold_value
-            for cluster_id in self.clusters.keys()
+            cluster_id:
+                trust_threshold_value
+
+            for cluster_id
+            in self.clusters.keys()
         }
+
+
+        (
+            self.trust_scores,
+            self.valid_clients,
+            self.suspicious_clients,
+            self.unresolved_clients,
+            self.round_references,
+            self.evaluated_main_clients,
+        ) = evaluate_main_clients_once(
+
+            self.clusters,
+            self.main_clients,
+            self.backup_clients,
+
+            self.main_updates,
+            self.backup_updates,
+
+            self.trust_scores,
+
+            self.medoids,
+            self.distance_matrix,
+
+            t_near,
+            lambda_trust,
+
+            trust_threshold,
+
+            self.client_to_index,
+        )
+
+
+        self.main_trust_evaluated = True
+
+    def prepare_replacement_backup_request(
+        self
+    ):
+
+        if not self.main_trust_evaluated:
+
+            raise RuntimeError(
+                "Main trust must be "
+                "evaluated first."
+            )
+
+
+        requirements = {}
+
+
+        for cluster_id in self.clusters:
+
+            suspicious = (
+                self.suspicious_clients.get(
+                    cluster_id,
+                    []
+                )
+            )
+
+
+            if not suspicious:
+                continue
+
+
+            missing_backups = [
+
+                client_id
+
+                for client_id
+                in self.backup_clients.get(
+                    cluster_id,
+                    []
+                )
+
+                if client_id
+                not in self.backup_updates
+            ]
+
+
+            if missing_backups:
+
+                requirements[
+                    cluster_id
+                ] = missing_backups
+
+
+        self.backup_requirements = (
+            requirements
+        )
+
+        return requirements
+
+    
+
+    def finalize_backup_replacement(
+        self,
+        lambda_trust=LAMBDA_TRUST,
+        trust_threshold_value=
+            TRUST_THRESHOLD,
+        alpha=SELECTION_ALPHA,
+    ):
+
+        if self.replacement_finalized:
+            return
+
+
+        if not self.main_trust_evaluated:
+
+            raise RuntimeError(
+                "Main trust has not "
+                "been evaluated."
+            )
+
+
+        trust_threshold = {
+            cluster_id:
+                trust_threshold_value
+
+            for cluster_id
+            in self.clusters.keys()
+        }
+
 
         (
             self.trust_scores,
             self.accepted_clients,
-            self.backup_requirements,
-        ) = (
-            trust_evaluation_and_backup_replacement(
-                self.clusters,
-                self.main_clients,
-                self.backup_clients,
-                self.main_updates,
-                self.backup_updates,
-                self.trust_scores,
-                self.medoids,
-                self.distance_matrix,
-                t_near,
-                lambda_trust,
-                trust_threshold,
-                alpha,
-                self.client_infos,
-                self.cluster_samples_counts,
-                self.client_to_index
-            )
+            self.evaluated_backups,
+        ) = evaluate_backups_and_replace_once(
+
+            self.clusters,
+
+            self.valid_clients,
+            self.suspicious_clients,
+            self.unresolved_clients,
+
+            self.backup_clients,
+            self.backup_updates,
+
+            self.trust_scores,
+            trust_threshold,
+
+            self.round_references,
+
+            self.client_infos,
+            self.cluster_samples_counts,
+
+            alpha,
+            lambda_trust,
         )
 
-    def start_round(self, round_id):
+
+        self.replacement_finalized = True
+
+    def start_round(
+        self,
+        round_id,
+    ):
 
         self.current_round = round_id
 
@@ -262,8 +458,29 @@ class Server:
         self.accepted_clients = {}
         self.client_weights = {}
         self.cluster_updates = {}
+
         self.global_update = None
+        self.model_relative_change = None
+
         self.backup_requirements = {}
+
+
+        # Trust-evaluation state
+        self.main_trust_evaluated = False
+
+        self.valid_clients = {}
+        self.suspicious_clients = {}
+        self.unresolved_clients = {}
+
+        self.round_references = {}
+
+        self.evaluated_main_clients = set()
+        self.evaluated_backups = set()
+
+
+        # Replacement / aggregation state
+        self.replacement_finalized = False
+        self.round_aggregated = False
 
     def create_training_package(
             self,
@@ -284,6 +501,16 @@ class Server:
             self,
             trim_ratio=TRIM_RATIO,
     ):
+        if self.round_aggregated:
+            return self.global_model
+
+
+        if not self.replacement_finalized:
+
+            raise RuntimeError(
+                "Backup replacement has "
+                "not been finalized."
+            )
 
         self.client_weights = compute_client_weights(
             self.accepted_clients,
@@ -333,6 +560,7 @@ class Server:
         )
         
         self._model_state_cache = None
+        self.round_aggregated = True
 
         return self.global_model
 
@@ -351,11 +579,6 @@ class Server:
         return self._model_state_cache
 
     def evaluate(self, use_val=True):
-        """
-        Evaluate model.
-        use_val=True: use validation set (for training/early stopping)
-        use_val=False: use test set (for final evaluation only)
-        """
         dataset = self.val_dataset if use_val else self.test_dataset
         return evaluate_model(
             self.global_model,

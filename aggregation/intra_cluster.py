@@ -1,6 +1,6 @@
 import numpy as np
 
-from config import MIN_REFERENCE_CLIENTS
+# from config import MIN_REFERENCE_CLIENTS
 
 
 def get_client_update(
@@ -41,16 +41,16 @@ def weighted_trimmed_mean(
     #     trim_count = 0
 
     trim_count = int(
-        np.floor(trim_ratio * n_clients)
+        np.floor(
+            trim_ratio * n_clients
+        )
     )
-
-    if n_clients >= 3:
-        trim_count = max(1, trim_count)
-
-    trim_count = min(
-        trim_count,
-        (n_clients - 1) // 2
-    )
+    if (
+        trim_count <= 0
+        or
+        2 * trim_count >= n_clients
+    ):
+        trim_count = 0
 
 
     if trim_count == 0:
@@ -169,24 +169,30 @@ def aggregate_clusters(
         if len(updates) == 0:
             continue
 
-        if len(updates) < MIN_REFERENCE_CLIENTS:
-            # weighted mean fallback
-            result = np.zeros_like(
-                next(iter(updates.values()))
-            )
+        # if len(updates) < MIN_REFERENCE_CLIENTS:
+        #     # weighted mean fallback
+        #     result = np.zeros_like(
+        #         next(iter(updates.values()))
+        #     )
 
-            for client_id, update in updates.items():
-                result += (
-                    client_weights[cluster_id][client_id]
-                    * update
-                )
+        #     for client_id, update in updates.items():
+        #         result += (
+        #             client_weights[cluster_id][client_id]
+        #             * update
+        #         )
 
-        else:
-            result = weighted_trimmed_mean(
-                updates,
-                client_weights[cluster_id],
-                trim_ratio
-            )
+        # else:
+        #     result = weighted_trimmed_mean(
+        #         updates,
+        #         client_weights[cluster_id],
+        #         trim_ratio
+        #     )
+
+        result = weighted_trimmed_mean(
+            updates,
+            client_weights[cluster_id],
+            trim_ratio,
+        )
 
         cluster_updates[cluster_id] = result
 

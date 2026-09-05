@@ -68,7 +68,7 @@ def send_update(
 
     update_to_send = np.ascontiguousarray(
         update,
-        dtype=np.float64
+        dtype=np.float32
     )
 
     params = {
