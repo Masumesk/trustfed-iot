@@ -1,34 +1,43 @@
-from clustering.distribution import get_client_distribution
-from torch.utils.data import Subset
-from torch.utils.data import DataLoader
-from attacks.label_flip import label_flip_attack
+from clustering.distribution import (
+    get_client_distribution,
+)
 
+from torch.utils.data import (
+    Subset,
+    DataLoader,
+)
 
-import copy
+from attacks.label_flip import (
+    label_flip_attack,
+)
+
 import torch
 import torch.nn as nn
 
 
 class Client:
+
     def __init__(
         self,
         client_id,
         dataset,
         indices,
         num_classes=10,
-        malicious = False,
+        malicious=False,
         attack_type=None,
         compute_distribution=True,
     ):
-        self.client_id = client_id
 
+        self.client_id = client_id
         self.dataset = dataset
         self.indices = list(indices)
 
-        self.num_samples = len(self.indices)
+        self.num_samples = len(
+            self.indices
+        )
 
         if compute_distribution:
-            
+
             self.distribution = (
                 get_client_distribution(
                     self.dataset,
@@ -42,117 +51,192 @@ class Client:
 
             self.distribution = None
 
-        self.training_package= None
-
         self.malicious = malicious
-        self.attack_type = attack_type  
+        self.attack_type = attack_type
         self.num_classes = num_classes
 
+        self._loader_cache = {}
+
+
     def get_client_distribution(self):
+
         return {
-            "client_id": self.client_id,
-            "distribution": self.distribution.tolist(), #pi
-            "num_samples": self.num_samples    #Ni
+            "client_id":
+                self.client_id,
+
+            "distribution":
+                self.distribution.tolist(),
+
+            "num_samples":
+                self.num_samples,
         }
 
 
-
     def get_subset(self):
+
         return Subset(
             self.dataset,
-            self.indices
+            self.indices,
         )
 
-    
-    def local_train(self, model, epochs, batch_size, lr,reusable_model=None,):
+
+    def get_train_loader(
+        self,
+        batch_size,
+    ):
+
+        batch_size = int(
+            batch_size
+        )
+
+        if (
+            batch_size
+            not in self._loader_cache
+        ):
+
+            client_dataset = (
+                self.get_subset()
+            )
+
+            self._loader_cache[
+                batch_size
+            ] = DataLoader(
+                client_dataset,
+                batch_size=batch_size,
+                shuffle=True,
+
+
+                pin_memory=(
+                    torch.cuda.is_available()
+                ),
+            )
+
+        return self._loader_cache[
+            batch_size
+        ]
+
+
+    def local_train(
+        self,
+        epochs,
+        batch_size,
+        lr,
+        reusable_model,
+        global_state_dict,
+    ):
+
         device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-        print("Training device:", device)
-
-        if reusable_model is None:
-
-            local_model = (
-                copy.deepcopy(model)
-                .to(device)
-            )
-
-        else:
-
-            local_model = reusable_model
-
-            local_model.load_state_dict(
-                model.state_dict()
-            )
-
-        client_dataset = self.get_subset()
-
-        client_loader = DataLoader(
-            client_dataset,
-            batch_size=batch_size,
-            shuffle=True
+            "cuda"
+            if torch.cuda.is_available()
+            else "cpu"
         )
 
-        criterion = nn.CrossEntropyLoss()
-        
-        #
+        print(
+            "Training device:",
+            device,
+        )
+
+
+        local_model = reusable_model
+
+        local_model.load_state_dict(
+            global_state_dict
+        )
+
+        # Reuse cached DataLoader.
+        client_loader = (
+            self.get_train_loader(
+                batch_size
+            )
+        )
+
+        criterion = (
+            nn.CrossEntropyLoss()
+        )
+
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=lr,
             momentum=0.9,
-            weight_decay=5e-4
+            weight_decay=5e-4,
         )
-        #
 
         local_model.train()
 
         total_loss = 0.0
-        num_batches=0
+        num_batches = 0
 
-        for epoch in range(epochs):
+        for epoch in range(
+            epochs
+        ):
 
-            for images, labels in client_loader:
+            for (
+                images,
+                labels,
+            ) in client_loader:
 
-                images = images.to(device, non_blocking=True)
-                labels = labels.to(device, non_blocking=True)
+                images = images.to(
+                    device,
+                    non_blocking=True,
+                )
 
-                if self.malicious and self.attack_type == "label_flip":
-                    labels = label_flip_attack(labels, self.num_classes)
+                labels = labels.to(
+                    device,
+                    non_blocking=True,
+                )
+
+                if (
+                    self.malicious
+                    and self.attack_type
+                    == "label_flip"
+                ):
+
+                    labels = (
+                        label_flip_attack(
+                            labels,
+                            self.num_classes,
+                        )
+                    )
 
                 optimizer.zero_grad(
                     set_to_none=True
                 )
 
-                outputs = local_model(images)
+                outputs = (
+                    local_model(
+                        images
+                    )
+                )
 
-                loss = criterion(outputs, labels)
+                loss = criterion(
+                    outputs,
+                    labels,
+                )
 
                 loss.backward()
 
                 optimizer.step()
 
-                total_loss += loss.item()
-                num_batches+=1
+                total_loss += (
+                    loss.item()
+                )
 
-        average_loss = total_loss / num_batches
+                num_batches += 1
 
-        return local_model, average_loss
-
-    def receive_training_package(self, package):
-        self.training_package = package
-
-
-    def train_received_package(self):
-
-        package = self.training_package
-        return self.local_train(
-            model=package["global_model"],
-            epochs=package["local_epochs"],
-            batch_size=package["batch_size"],
-            lr=package["learning_rate"]
+        average_loss = (
+            total_loss
+            / num_batches
         )
 
+        return (
+            local_model,
+            average_loss,
+        )
+
+
     def __repr__(self):
+
         return (
             f"Client("
             f"id={self.client_id}, "

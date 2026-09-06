@@ -549,7 +549,7 @@ class Server:
             self.global_update
         )
 
-        self.model_relative_change = (
+        self.model_relative_change = float(
                 update_norm
                 / (previous_model_norm + 1e-12)
         )

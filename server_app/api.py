@@ -305,8 +305,11 @@ def aggregate():
             "trust_scores":
                 server.trust_scores,
 
-            "model_relative_change":
-                server.model_relative_change,
+            "model_relative_change": (
+                float(server.model_relative_change)
+                if server.model_relative_change is not None
+                else None
+            ),
         }
 
 

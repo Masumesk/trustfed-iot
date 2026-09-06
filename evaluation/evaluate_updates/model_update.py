@@ -1,6 +1,8 @@
 import torch
 
-
+from torch.nn.utils import (
+    parameters_to_vector,
+)
 def compute_model_update(
     global_model,
     local_model
@@ -120,3 +122,51 @@ def apply_model_update(
         )
 
     return model
+
+
+def compute_model_update_from_state_dict(
+        global_state_dict,
+        local_model,
+):
+    named_parameters = list(
+        local_model.named_parameters()
+    )
+
+    if not named_parameters:
+        return (
+            torch.empty(0)
+            .numpy()
+        )
+
+    local_vector = (
+        parameters_to_vector(
+            [
+                parameter.detach()
+                for _, parameter
+                in named_parameters
+            ]
+        )
+    )
+
+    global_vector = torch.cat(
+        [
+            global_state_dict[name]
+            .detach()
+            .reshape(-1)
+            for name, _
+            in named_parameters
+        ]
+    )
+
+    update_vector = (
+        local_vector
+        - global_vector
+    )
+
+    return (
+        update_vector
+        .detach()
+        .cpu()
+        .contiguous()
+        .numpy()
+    )

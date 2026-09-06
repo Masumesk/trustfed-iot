@@ -36,6 +36,8 @@ def train_main_and_backup_clients(
     executor,
     main_ids,
     backup_ids,
+    round_id,
+
 ):
 
     main_ids = sorted(
@@ -63,6 +65,7 @@ def train_main_and_backup_clients(
             client_id,
             SERVER,
             True,
+            round_id,
         )
 
         main_futures[
@@ -81,6 +84,7 @@ def train_main_and_backup_clients(
             client_id,
             SERVER,
             False,
+            round_id,
         )
 
         backup_futures[
@@ -518,6 +522,7 @@ def main():
                     client_executor,
                     main_ids,
                     backup_ids,
+                    round_id,
                 )
             )
 

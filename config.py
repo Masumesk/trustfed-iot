@@ -19,7 +19,7 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 
 
 # Federated configuration
-NUM_CLIENTS = _env_int("NUM_CLIENTS", 40)
+NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
 PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
 
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
@@ -30,7 +30,7 @@ BATCH_SIZE = _env_int("BATCH_SIZE", 64)
 
 CLIENT_WORKERS = _env_int(
     "CLIENT_WORKERS",
-    2,
+    1,
 )
 
 
@@ -129,7 +129,7 @@ MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 # Dataset
 
-DATASET = "CIFAR10"
+DATASET = "MNIST"
 
 
 if DATASET == "MNIST":

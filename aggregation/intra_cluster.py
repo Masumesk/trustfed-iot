@@ -1,12 +1,13 @@
 import numpy as np
 
-from config import MIN_REFERENCE_CLIENTS
+
+# from config import MIN_REFERENCE_CLIENTS
 
 
 def get_client_update(
-    client_id,
-    main_updates,
-    backup_updates
+        client_id,
+        main_updates,
+        backup_updates
 ):
     if client_id in main_updates:
         return main_updates[client_id]
@@ -20,9 +21,9 @@ def get_client_update(
 
 
 def weighted_trimmed_mean(
-    client_updates,
-    client_weights,
-    trim_ratio=0.2
+        client_updates,
+        client_weights,
+        trim_ratio=0.2
 ):
     client_ids = list(client_updates.keys())
 
@@ -41,20 +42,18 @@ def weighted_trimmed_mean(
     #     trim_count = 0
 
     trim_count = int(
-        np.floor(trim_ratio * n_clients)
+        np.floor(
+            trim_ratio * n_clients
+        )
     )
-
-    if n_clients >= 3:
-        trim_count = max(1, trim_count)
-
-    trim_count = min(
-        trim_count,
-        (n_clients - 1) // 2
-    )
-
+    if (
+            trim_count <= 0
+            or
+            2 * trim_count >= n_clients
+    ):
+        trim_count = 0
 
     if trim_count == 0:
-
         weights = np.asarray(
             [
                 client_weights[cid]
@@ -64,7 +63,7 @@ def weighted_trimmed_mean(
         )
 
         weights = (
-            weights / weights.sum()
+                weights / weights.sum()
         )
 
         return np.sum(
@@ -72,30 +71,27 @@ def weighted_trimmed_mean(
             axis=0,
         )
 
-
-
     weights_all = np.asarray(
-    [
-        client_weights[cid]
-        for cid in client_ids
-    ]
+        [
+            client_weights[cid]
+            for cid in client_ids
+        ]
     )
-    
+
     result = np.zeros(n_params)
 
     chunk_size = 65536
 
     for start in range(
-        0,
-        n_params,
-        chunk_size
+            0,
+            n_params,
+            chunk_size
     ):
         end = min(
             start + chunk_size,
             n_params
         )
 
-        
         values = updates[:, start:end]
 
         order = np.argsort(
@@ -104,10 +100,10 @@ def weighted_trimmed_mean(
         )
 
         kept_indices = order[
-            trim_count:
-            n_clients - trim_count,
-            :
-        ]
+                       trim_count:
+                       n_clients - trim_count,
+                       :
+                       ]
 
         kept_values = np.take_along_axis(
             values,
@@ -120,12 +116,12 @@ def weighted_trimmed_mean(
         ]
 
         kept_weights = (
-            kept_weights
-            /
-            kept_weights.sum(
-                axis=0,
-                keepdims=True
-            )
+                kept_weights
+                /
+                kept_weights.sum(
+                    axis=0,
+                    keepdims=True
+                )
         )
 
         result[start:end] = np.sum(
@@ -135,13 +131,14 @@ def weighted_trimmed_mean(
 
     return result
 
+
 def aggregate_clusters(
-    clusters,
-    accepted_clients,
-    main_updates,
-    backup_updates,
-    client_weights,
-    trim_ratio=0.2
+        clusters,
+        accepted_clients,
+        main_updates,
+        backup_updates,
+        client_weights,
+        trim_ratio=0.2
 ):
     cluster_updates = {}
 
@@ -169,24 +166,30 @@ def aggregate_clusters(
         if len(updates) == 0:
             continue
 
-        if len(updates) < MIN_REFERENCE_CLIENTS:
-            # weighted mean fallback
-            result = np.zeros_like(
-                next(iter(updates.values()))
-            )
+        # if len(updates) < MIN_REFERENCE_CLIENTS:
+        #     # weighted mean fallback
+        #     result = np.zeros_like(
+        #         next(iter(updates.values()))
+        #     )
 
-            for client_id, update in updates.items():
-                result += (
-                    client_weights[cluster_id][client_id]
-                    * update
-                )
+        #     for client_id, update in updates.items():
+        #         result += (
+        #             client_weights[cluster_id][client_id]
+        #             * update
+        #         )
 
-        else:
-            result = weighted_trimmed_mean(
-                updates,
-                client_weights[cluster_id],
-                trim_ratio
-            )
+        # else:
+        #     result = weighted_trimmed_mean(
+        #         updates,
+        #         client_weights[cluster_id],
+        #         trim_ratio
+        #     )
+
+        result = weighted_trimmed_mean(
+            updates,
+            client_weights[cluster_id],
+            trim_ratio,
+        )
 
         cluster_updates[cluster_id] = result
 

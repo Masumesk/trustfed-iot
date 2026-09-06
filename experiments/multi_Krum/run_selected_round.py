@@ -84,6 +84,8 @@ def run_one_round(
             run_client_round_task,
             client_id,
             server_url,
+            True,
+            round_id,
         )
         for client_id in selected_clients
     ]
