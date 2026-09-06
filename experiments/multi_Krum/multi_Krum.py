@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def multi_krum(client_updates, f, m=None):
 
     client_ids = list(client_updates.keys())
@@ -18,18 +17,17 @@ def multi_krum(client_updates, f, m=None):
     )
 
     num_neighbors = n - f - 2
-
-    # هر فاصله فقط یک بار محاسبه می‌شود
+    diff_buffer = np.empty(updates.shape[1],dtype=np.float32,)
     distances_per_client = [[] for _ in range(n)]
 
     for i in range(n):
-
         for j in range(i + 1, n):
 
-            distance = np.sum((updates[i] - updates[j]) ** 2)
+            np.subtract(updates[i], updates[j], out=diff_buffer)
+            np.square(diff_buffer, out=diff_buffer)
+            distance = np.sum(diff_buffer)
 
             distances_per_client[i].append(distance)
-
             distances_per_client[j].append(distance)
 
     scores = {}

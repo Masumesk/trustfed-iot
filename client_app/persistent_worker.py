@@ -1,6 +1,4 @@
-from client_app.run_round import (
-        run_client_round,
-)
+from client_app.run_round import run_client_round
 
 def run_client_round_task(
     client_id,
@@ -9,7 +7,6 @@ def run_client_round_task(
     expected_round=None,
 
 ):
-
     return run_client_round(
         client_id,
         server_url,

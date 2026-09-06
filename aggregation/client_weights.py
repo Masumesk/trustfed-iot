@@ -1,19 +1,15 @@
-def compute_client_weights(
-        accepted_clients,
-        trust_scores,
-        client_infos
-):
-    weights= {}
+def compute_client_weights(accepted_clients, trust_scores, client_infos):
+    
+    weights = {}
 
-    for cluster_id,clients in accepted_clients.items():
-        weights[cluster_id]={}
+    for cluster_id, clients in accepted_clients.items():
+        weights[cluster_id] = {}
 
         if not clients:
             continue
 
         total_samples = sum(
-            client_infos[client_id]["num_samples"]
-            for client_id, penalty in clients
+            client_infos[client_id]["num_samples"] for client_id, penalty in clients
         )
 
         raw_weights = {}
@@ -24,16 +20,13 @@ def compute_client_weights(
             data_weight = n_i / total_samples
             trust_weight = trust_scores[client_id]
 
-            raw_weight = (data_weight * trust_weight* penalty)
-
+            raw_weight = data_weight * trust_weight * penalty
 
             raw_weights[client_id] = raw_weight
 
-        total_raw_weight  = sum(raw_weights.values())
+        total_raw_weight = sum(raw_weights.values())
 
         for client_id, raw_weight in raw_weights.items():
-            weights[cluster_id][client_id] = (
-                    raw_weight / total_raw_weight
-            )
+            weights[cluster_id][client_id] = raw_weight / total_raw_weight
 
     return weights

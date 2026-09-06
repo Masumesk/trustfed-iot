@@ -1,85 +1,10 @@
 import torch
+from torch.nn.utils import parameters_to_vector
 
-from torch.nn.utils import (
-    parameters_to_vector,
-)
-def compute_model_update(
-    global_model,
-    local_model
-):
 
-    global_parameters = dict(
-        global_model.named_parameters()
-    )
+def apply_model_update(model, update_vector):
 
-    total_numel = sum(
-        parameter.numel()
-        for parameter
-        in local_model.parameters()
-    )
-
-    first_parameter = next(
-        local_model.parameters()
-    )
-
-    update_vector = torch.empty(
-        total_numel,
-        dtype=first_parameter.dtype,
-        device="cpu"
-    )
-
-    offset = 0
-
-    for (
-        name,
-        local_parameter
-    ) in local_model.named_parameters():
-
-        global_parameter = (
-            global_parameters[name]
-        )
-
-        numel = (
-            local_parameter.numel()
-        )
-
-        target = update_vector[
-            offset:
-            offset + numel
-        ]
-
-        local_cpu = (
-            local_parameter
-            .detach()
-            .cpu()
-            .reshape(-1)
-        )
-
-        global_cpu = (
-            global_parameter
-            .detach()
-            .cpu()
-            .reshape(-1)
-        )
-
-        torch.sub(
-            local_cpu,
-            global_cpu,
-            out=target
-        )
-
-        offset += numel
-
-    return update_vector.numpy()
-
-def apply_model_update(
-    model,
-    update_vector
-):
-
-    parameters = list(
-        model.parameters()
-    )
+    parameters = list(model.parameters())
 
     if not parameters:
         return model
@@ -87,12 +12,7 @@ def apply_model_update(
     device = parameters[0].device
     dtype = parameters[0].dtype
 
-    flat_update = torch.as_tensor(
-        update_vector,
-        dtype=dtype,
-        device=device
-    )
-
+    flat_update = torch.as_tensor(update_vector, dtype=dtype, device=device)
     offset = 0
 
     with torch.no_grad():
@@ -101,72 +21,49 @@ def apply_model_update(
 
             numel = parameter.numel()
 
-            update_part = (
-                flat_update[
-                    offset:
-                    offset + numel
-                ]
-                .view_as(parameter)
-            )
+            update_part = flat_update[offset : offset + numel].view_as(parameter)
 
-            parameter.add_(
-                update_part
-            )
+            parameter.add_(update_part)
 
             offset += numel
 
     if offset != len(update_vector):
-        raise ValueError(
-            "Update vector size "
-            "does not match model."
-        )
+        raise ValueError("Update vector size does not match model.")
 
     return model
 
 
-def compute_model_update_from_state_dict(
-        global_state_dict,
-        local_model,
-):
-    named_parameters = list(
-        local_model.named_parameters()
-    )
+def state_dict_to_parameter_vector(global_state_dict, local_model):
+
+    named_parameters = list(local_model.named_parameters())
 
     if not named_parameters:
-        return (
-            torch.empty(0)
-            .numpy()
+        return torch.empty(0)
+
+    return torch.cat(
+        [global_state_dict[name].detach().reshape(-1) for name, _ in named_parameters]
+    )
+
+
+def compute_model_update_from_state_dict(
+    global_state_dict, local_model, global_vector=None
+):
+
+    named_parameters = list(local_model.named_parameters())
+
+    if not named_parameters:
+        return torch.empty(0).numpy()
+
+    local_vector = parameters_to_vector(
+        [parameter.detach() for _, parameter in named_parameters]
+    )
+
+    if global_vector is None:
+        global_vector = state_dict_to_parameter_vector(
+            global_state_dict,
+            local_model,
         )
 
-    local_vector = (
-        parameters_to_vector(
-            [
-                parameter.detach()
-                for _, parameter
-                in named_parameters
-            ]
-        )
-    )
+    update_vector = local_vector - global_vector
 
-    global_vector = torch.cat(
-        [
-            global_state_dict[name]
-            .detach()
-            .reshape(-1)
-            for name, _
-            in named_parameters
-        ]
-    )
-
-    update_vector = (
-        local_vector
-        - global_vector
-    )
-
-    return (
-        update_vector
-        .detach()
-        .cpu()
-        .contiguous()
-        .numpy()
-    )
+    return update_vector.detach().cpu().contiguous().numpy()

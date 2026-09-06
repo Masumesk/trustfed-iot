@@ -1,10 +1,9 @@
 import uvicorn
-from experiments.multi_Krum.server.api import app
-
 
 if __name__ == "__main__":
+
     uvicorn.run(
-        app,
+        "experiments.multi_Krum.server.api:app",
         host="0.0.0.0",
         port=8002,
         access_log=False,
