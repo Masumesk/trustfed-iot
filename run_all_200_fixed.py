@@ -62,6 +62,8 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.py"
 
+RESULTS_ROOT = ROOT / "results" / "benchmark"
+
 DEFAULT_ORDER = ["fedavg", "multikrum", "proposed"]
 
 DISPLAY_NAMES = {
@@ -688,8 +690,18 @@ def main() -> int:
             check_server(ALGORITHM_SERVERS[algo], DISPLAY_NAMES[algo])
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = ROOT / "comparison_runs" / f"run_{stamp}_r{args.rounds}"
-    run_dir.mkdir(parents=True, exist_ok=True)
+
+    run_dir = (
+            RESULTS_ROOT
+            / "raw"
+            / "clean"
+            / f"run_{stamp}_r{args.rounds}"
+    )
+
+    run_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
