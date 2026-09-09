@@ -149,35 +149,35 @@ def _validate(
     val_loss_change = None
 
     # if relative_change < MODEL_CHANGE_THRESHOLD:
-    if round_id==1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
-        print("\n[3/3] Validation started...")
+    # if round_id==1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
+    print("\n[3/3] Validation started...")
 
-        response = requests.get(f"{server_url}/evaluate")
-        response.raise_for_status()
-        evaluation = response.json()
+    response = requests.get(f"{server_url}/evaluate")
+    response.raise_for_status()
+    evaluation = response.json()
 
-        val_accuracy = float(evaluation["accuracy"])
-        val_loss = float(evaluation["loss"])
+    val_accuracy = float(evaluation["accuracy"])
+    val_loss = float(evaluation["loss"])
 
-        if previous_val_loss is not None:
-            val_loss_change = abs(val_loss - previous_val_loss)
+    if previous_val_loss is not None:
+        val_loss_change = abs(val_loss - previous_val_loss)
 
-            if val_loss_change < VAL_LOSS_CHANGE_THRESHOLD:
-                stable_checks += 1
-            else:
-                stable_checks = 0
+        if val_loss_change < VAL_LOSS_CHANGE_THRESHOLD:
+            stable_checks += 1
+        else:
+            stable_checks = 0
 
-        previous_val_loss = val_loss
-        print("[3/3] Validation completed.")
+    previous_val_loss = val_loss
+    print("[3/3] Validation completed.")
 
-    else:
-        print(
-            "\n[3/3] Validation skipped "
-            f"(relative change {relative_change:.6f} >= "
-            f"threshold {MODEL_CHANGE_THRESHOLD:.6f})."
-        )
-        stable_checks = 0
-        previous_val_loss = None
+    # else:
+    #     print(
+    #         "\n[3/3] Validation skipped "
+    #         f"(relative change {relative_change:.6f} >= "
+    #         f"threshold {MODEL_CHANGE_THRESHOLD:.6f})."
+    #     )
+    #     stable_checks = 0
+    #     previous_val_loss = None
 
     converged = stable_checks >= PATIENCE
 
@@ -232,8 +232,6 @@ def _print_round_summary(
         f"{relative_change:.6f}",
     )
 
-    # Keep the accuracy/loss labels visible on every round.
-    # If validation was actually executed, the real values are printed.
     if val_accuracy is None:
         _item("Validation Accuracy:", "SKIPPED")
         _item("Validation Loss:", "SKIPPED")
