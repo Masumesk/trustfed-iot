@@ -20,9 +20,9 @@ def _env_str(name, default):
 SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 
 # Federated training
-NUM_CLIENTS = _env_int("NUM_CLIENTS", 30)
-PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.4)
-NUM_ROUNDS = _env_int("NUM_ROUNDS", 100)
+NUM_CLIENTS = _env_int("NUM_CLIENTS", 100)
+PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.1)
+NUM_ROUNDS = _env_int("NUM_ROUNDS", 1000)
 
 LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 2)
 BATCH_SIZE = _env_int("BATCH_SIZE", 64)
@@ -34,7 +34,7 @@ TRAINING_SEED = _env_int("TRAINING_SEED", 42)
 SELECTION_SEED = _env_int("SELECTION_SEED", 42)
 
 # Data partitioning
-DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.5)
+DIRICHLET_ALPHA = _env_float("DIRICHLET_ALPHA", 0.3)
 MIN_SAMPLES = _env_int("MIN_SAMPLES", 100)
 DATA_SEED = _env_int("DATA_SEED", 42)
 
@@ -97,3 +97,8 @@ if DATASET == "MNIST":
 elif DATASET == "CIFAR10":
     LEARNING_RATE = 0.01
     MODEL_CHANGE_THRESHOLD = 0.015
+
+
+#evaluation
+EVAL_INTERVAL = 10
+

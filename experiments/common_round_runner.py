@@ -12,6 +12,7 @@ from config import (
     get_malicious_ids,
 )
 from evaluation.csv_output import save_round_to_csv
+from config import EVAL_INTERVAL
 
 FEDAVG = "fedavg"
 MULTI_KRUM = "multikrum"
@@ -137,6 +138,7 @@ def _aggregate(
 
 
 def _validate(
+    round_id,
     server_url,
     relative_change,
     previous_val_loss,
@@ -146,7 +148,8 @@ def _validate(
     val_loss = None
     val_loss_change = None
 
-    if relative_change < MODEL_CHANGE_THRESHOLD:
+    # if relative_change < MODEL_CHANGE_THRESHOLD:
+    if round_id==1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
         print("\n[3/3] Validation started...")
 
         response = requests.get(f"{server_url}/evaluate")
@@ -307,6 +310,7 @@ def run_one_round(
         stable_checks,
         converged,
     ) = _validate(
+        round_id,
         server_url,
         relative_change,
         previous_val_loss,
@@ -501,6 +505,25 @@ def run_experiment(
     previous_val_loss = None
     stable_checks = 0
 
+    # Evaluate initial model (round 0)
+    response = requests.get(f"{server_url}/evaluate")
+    response.raise_for_status()
+
+    evaluation = response.json()
+
+    save_round_to_csv(
+        round_csv_path,
+        {
+            "round": 0,
+            "val_accuracy": float(evaluation["accuracy"]),
+            "val_loss": float(evaluation["loss"]),
+            "relative_change": 0,
+            "selected_malicious": 0,
+            "malicious_kept": 0,
+            "malicious_rejected": 0,
+        },
+    )
+
     _header(f"STARTING {method_name} EXPERIMENT")
     _item("Server:", server_url)
     _item("Maximum rounds:", num_rounds)
@@ -533,11 +556,11 @@ def run_experiment(
             previous_val_loss = result["previous_val_loss"]
             stable_checks = result["stable_checks"]
 
-            if result["converged"]:
-                print(
-                    f"\n[Stopping] Converged at round {result['round']}."
-                )
-                break
+            # if result["converged"]:
+            #     print(
+            #         f"\n[Stopping] Converged at round {result['round']}."
+            #     )
+            #     break
 
     _print_experiment_summary(
         method_name,

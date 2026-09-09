@@ -15,6 +15,8 @@ from config import (
     get_malicious_ids,
 )
 from evaluation.csv_output import save_round_to_csv
+#test
+from config import EVAL_INTERVAL
 
 SERVER = SERVER_URL
 ROUND_CSV_PATH = "results/proposed.csv"
@@ -276,6 +278,7 @@ def _aggregate_with_backups(backup_futures, round_id):
 
 
 def _validate(
+    round_id,
     model_relative_change,
     previous_val_loss,
     stable_checks,
@@ -284,7 +287,8 @@ def _validate(
     val_loss = None
     val_loss_change = None
 
-    if model_relative_change < MODEL_CHANGE_THRESHOLD:
+    # if model_relative_change < MODEL_CHANGE_THRESHOLD:
+    if round_id==1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
         print("\n[3/3] Validation started...")
 
         response = requests.get(f"{SERVER}/evaluate")
@@ -506,6 +510,26 @@ def main():
 
     _initialize_clustering()
 
+    response = requests.get(f"{SERVER}/evaluate")
+    response.raise_for_status()
+
+    evaluation = response.json()
+
+    save_round_to_csv(
+        ROUND_CSV_PATH,
+        {
+            "round": 0,
+            "val_accuracy": float(evaluation["accuracy"]),
+            "loss": float(evaluation["loss"]),
+            "relative_change": 0,
+            "representation_fairness": 0,
+            "hellinger_distance": 0,
+            "selected_malicious": 0,
+            "malicious_kept": 0,
+            "malicious_rejected": 0,
+        },
+    )
+
     with ProcessPoolExecutor(max_workers=CLIENT_WORKERS) as client_executor:
         for round_id in range(1, NUM_ROUNDS + 1):
             _header(f"Proposed | ROUND {round_id}")
@@ -555,6 +579,7 @@ def main():
                 stable_checks,
                 round_converged,
             ) = _validate(
+                round_id,
                 model_relative_change,
                 previous_val_loss,
                 stable_checks,
@@ -577,7 +602,7 @@ def main():
                 ROUND_CSV_PATH,
                 {
                     "round": round_id,
-                    "accuracy": val_accuracy,
+                    "val_accuracy": val_accuracy,
                     "loss": val_loss,
                     "relative_change": model_relative_change,
                     "representation_fairness": representation_fairness,
@@ -616,10 +641,10 @@ def main():
                 last_val_accuracy = val_accuracy
                 last_val_loss = val_loss
 
-            if round_converged:
-                print(f"\n[Stopping] Converged at round {round_id}.")
-                converged = True
-                break
+            # if round_converged:
+            #     print(f"\n[Stopping] Converged at round {round_id}.")
+            #     converged = True
+                # break
 
     _print_experiment_summary(
         completed_rounds,
