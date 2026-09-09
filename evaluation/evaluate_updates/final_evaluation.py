@@ -1,8 +1,9 @@
+import numpy as np
+
 from config import MIN_REFERENCE_CLIENTS
 from evaluation.evaluate_updates.backup_replacement import replace_backup_clients
 from evaluation.evaluate_updates.evaluate_clients import evaluate_clients
 from evaluation.evaluate_updates.trust_score import (
-    compute_A_i,
     compute_median_update,
     compute_reference_scale,
     update_trust_score,
@@ -129,32 +130,25 @@ def evaluate_main_clients_once(
             "median_distance": median_distance,
         }
 
-        for client_id in main_clients.get(cluster_id, []):
+        client_ids = [
+            cid for cid in main_clients.get(cluster_id, [])
+            if cid in main_updates
+        ]
 
-            if client_id not in main_updates:
-                continue
+        if not client_ids:
+            continue
 
-            old_trust = trust_scores.get(
-                client_id,
-                0.5,
-            )
+        updates = np.stack([main_updates[cid] for cid in client_ids])
+        distances = np.linalg.norm(updates - reference,axis=1)
 
-            update = main_updates[client_id]
+        A_values = distances / (median_distance + 1e-8)
 
-            A_i = compute_A_i(
-                update,
-                reference,
-                median_distance,
-            )
+        for client_id, A_i in zip(client_ids, A_values):
+            old_trust = trust_scores.get(client_id, 0.5)
 
-            new_trust = update_trust_score(
-                old_trust,
-                A_i,
-                lambda_trust,
-            )
+            new_trust = update_trust_score(old_trust,A_i,lambda_trust,)
 
             trust_scores[client_id] = new_trust
-
             evaluated_clients.add(client_id)
 
             print(
@@ -236,30 +230,23 @@ def evaluate_backups_and_replace_once(
 
         median_distance = reference_info["median_distance"]
 
-        for client_id in backup_clients.get(cluster_id, []):
+        backup_ids = [
+            cid for cid in backup_clients.get(cluster_id, [])
+            if cid in backup_updates]
 
-            if client_id not in backup_updates:
-                continue
+        if not backup_ids:
+            continue
 
-            old_trust = trust_scores.get(
-                client_id,
-                0.5,
-            )
+        updates = np.stack([backup_updates[cid] for cid in backup_ids])
 
-            update = backup_updates[client_id]
+        distances = np.linalg.norm(updates - reference,axis=1)
 
-            A_i = compute_A_i(
-                update,
-                reference,
-                median_distance,
-            )
+        A_values = distances / (median_distance + 1e-8)
 
-            new_trust = update_trust_score(
-                old_trust,
-                A_i,
-                lambda_trust,
-            )
+        for client_id, A_i in zip(backup_ids, A_values):
+            old_trust = trust_scores.get(client_id,0.5,)
 
+            new_trust = update_trust_score(old_trust,A_i,lambda_trust,)
             trust_scores[client_id] = new_trust
 
             evaluated_backups.add(client_id)

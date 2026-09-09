@@ -64,11 +64,10 @@ def compute_median_update(
 
 
 def compute_reference_scale(reference, reference_updates):
-    distances = np.empty(len(reference_updates), dtype=np.float64)
 
-    for idx, ref_update in enumerate(reference_updates):
+    updates = np.stack(reference_updates)
 
-        distances[idx] = np.sqrt(np.sum((ref_update - reference) ** 2))
+    distances = np.linalg.norm(updates - reference,axis=1,)
 
     return np.median(distances)
 
