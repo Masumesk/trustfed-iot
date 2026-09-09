@@ -4,6 +4,8 @@ import numpy as np
 import requests
 import torch
 from requests.adapters import HTTPAdapter
+import time
+from urllib3.util.retry import Retry
 
 from config import SERVER_URL as _DEFAULT_SERVER_URL
 
@@ -11,7 +13,18 @@ SERVER_URL = _DEFAULT_SERVER_URL.rstrip("/")
 
 _SESSION = requests.Session()
 
+_retry = Retry(
+    total=5,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504],
+    allowed_methods=[
+        "GET",
+        "POST",
+    ],
+)
+
 _adapter = HTTPAdapter(
+    max_retries=_retry,
     pool_connections=8,
     pool_maxsize=8,
 )
@@ -45,7 +58,7 @@ def register_client(client_info):
 
 def get_training_package(client_id):
 
-    response = _SESSION.get(f"{SERVER_URL}/model/{client_id}")
+    response = _SESSION.get(f"{SERVER_URL}/model/{client_id}",timeout=(10,120))
     response.raise_for_status()
     content_type = response.headers.get(
         "content-type",
@@ -84,6 +97,7 @@ def send_update(
         params=params,
         data=update_to_send.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
+        timeout=(10,120),
     )
 
     response.raise_for_status()

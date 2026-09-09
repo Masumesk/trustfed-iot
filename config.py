@@ -100,5 +100,5 @@ elif DATASET == "CIFAR10":
 
 
 #evaluation
-EVAL_INTERVAL = 10
+EVAL_INTERVAL = 5
 
