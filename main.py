@@ -1,10 +1,14 @@
 from concurrent.futures import ProcessPoolExecutor
 
+import os
+import numpy as np
 import requests
 
 from client_app.api_client import send_update, set_server_url
 from client_app.persistent_worker import run_client_round_task
 from config import (
+    MALICIOUS_RATIO,
+    MALICIOUS_SEED,
     ATTACK_TYPE,
     CLIENT_WORKERS,
     MODEL_CHANGE_THRESHOLD,
@@ -12,7 +16,6 @@ from config import (
     PATIENCE,
     SERVER_URL,
     VAL_LOSS_CHANGE_THRESHOLD,
-    get_malicious_ids,
 )
 from evaluation.csv_output import save_round_to_csv
 #test
@@ -200,6 +203,145 @@ def _initialize_clustering():
             f"Cluster {cluster_id}:",
             f"{len(client_ids)} {client_ids}",
         )
+
+    return {
+        int(cluster_id): [
+            int(client_id)
+            for client_id in client_ids
+        ]
+        for cluster_id, client_ids
+        in clusters.items()
+    }
+
+def _assign_malicious_clients_by_cluster(
+    clusters,
+):
+    rng = np.random.RandomState(MALICIOUS_SEED)
+
+    normalized_clusters = {
+        int(cluster_id): sorted(
+            int(client_id)
+            for client_id in client_ids
+        )
+        for cluster_id, client_ids in clusters.items()
+    }
+
+    total_clients = sum(
+        len(client_ids)
+        for client_ids in normalized_clusters.values()
+    )
+
+    num_malicious = int(
+        total_clients * MALICIOUS_RATIO
+    )
+
+    max_malicious = {
+        cluster_id: (len(client_ids) - 1) // 2
+        for cluster_id, client_ids
+        in normalized_clusters.items()
+    }
+
+    total_capacity = sum(max_malicious.values())
+
+    if num_malicious > total_capacity:
+        raise ValueError(
+            "Requested malicious ratio cannot satisfy "
+            "the benign-majority assumption in all clusters. "
+            f"requested={num_malicious}, "
+            f"maximum_allowed={total_capacity}"
+        )
+
+
+    ideal_counts = {
+        cluster_id: (num_malicious* len(client_ids)/ total_clients )
+        for cluster_id, client_ids
+        in normalized_clusters.items()
+    }
+
+    malicious_count_per_cluster = {
+        cluster_id: min(int(np.floor(ideal_counts[cluster_id])),max_malicious[cluster_id],)
+        for cluster_id
+        in normalized_clusters
+    }
+
+    remaining = (num_malicious- sum( malicious_count_per_cluster.values()))
+
+    while remaining > 0:
+
+        candidates = [
+            cluster_id
+            for cluster_id
+            in normalized_clusters
+            if (
+                malicious_count_per_cluster[
+                    cluster_id
+                ]
+                < max_malicious[
+                    cluster_id
+                ]
+            )
+        ]
+
+        if not candidates:
+            raise RuntimeError(
+                "Could not distribute malicious "
+                "clients across clusters."
+            )
+
+        candidates.sort(
+            key=lambda cluster_id: (
+                -(
+                    ideal_counts[cluster_id]
+                    - malicious_count_per_cluster[
+                        cluster_id
+                    ]
+                ),
+                -len(
+                    normalized_clusters[
+                        cluster_id
+                    ]
+                ),
+                cluster_id,
+            )
+        )
+
+        for cluster_id in candidates:
+
+            if remaining == 0:
+                break
+
+            if (malicious_count_per_cluster[cluster_id]>= max_malicious[cluster_id]):
+                continue
+
+            malicious_count_per_cluster[cluster_id] += 1
+
+            remaining -= 1
+
+    malicious_ids = set()
+
+    for cluster_id in sorted( normalized_clusters ):
+
+        client_ids = normalized_clusters[cluster_id]
+        count = malicious_count_per_cluster[cluster_id]
+
+        if count == 0:
+            continue
+
+        selected = rng.choice(
+            client_ids,
+            size=count,
+            replace=False,
+        )
+
+        malicious_ids.update(
+            int(client_id)
+            for client_id in selected
+        )
+
+    return (
+        malicious_ids,
+        malicious_count_per_cluster,
+    )
 
 
 def _start_and_prepare_round(round_id):
@@ -467,18 +609,17 @@ def _final_evaluation():
 
 
 def main():
+
     set_server_url(SERVER)
 
     if ATTACK_TYPE is None:
-        malicious_ids = set()
         print("Attack: NONE")
     else:
-        malicious_ids = get_malicious_ids()
         print(f"Attack: {ATTACK_TYPE}")
-        print(
-            "Malicious clients:",
-            sorted(malicious_ids),
-        )
+
+    previous_val_loss = None
+    stable_checks = 0
+    converged = False
     previous_val_loss = None
     stable_checks = 0
     converged = False
@@ -497,18 +638,56 @@ def main():
     _item("Server:", SERVER)
     _item("Maximum rounds:", NUM_ROUNDS)
     _item("Client workers:", CLIENT_WORKERS)
+    
+    clusters = _initialize_clustering()
+
     if ATTACK_TYPE is None:
-        _item("Attack:", "NONE")
-        _item("Configured malicious:", 0)
+        malicious_ids = set()
+        os.environ.pop("EXPERIMENT_MALICIOUS_IDS",None,)
+
     else:
-        _item("Attack:", ATTACK_TYPE)
-        _item(
-            "Configured malicious:",
-            f"{len(malicious_ids)} "
-            f"{sorted(malicious_ids)}",
+        (
+            malicious_ids,
+            malicious_per_cluster,
+        ) = _assign_malicious_clients_by_cluster(
+            clusters
         )
 
-    _initialize_clustering()
+        os.environ[
+            "EXPERIMENT_MALICIOUS_IDS"
+        ] = ",".join(
+            str(client_id)
+            for client_id
+            in sorted(malicious_ids)
+        )
+
+        print("\nExperimental malicious assignment:")
+
+        for cluster_id in sorted(clusters):
+
+            cluster_size = len(clusters[cluster_id])
+
+            cluster_malicious = sorted(set(clusters[cluster_id])& malicious_ids)
+
+            cluster_benign = (cluster_size- len(cluster_malicious))
+
+            _item(
+                f"Cluster {cluster_id}:",
+                (
+                    f"malicious="
+                    f"{len(cluster_malicious)} "
+                    f"{cluster_malicious} | "
+                    f"benign={cluster_benign}"
+                ),
+            )
+
+        _item(
+            "Configured malicious:",
+            (
+                f"{len(malicious_ids)} "
+                f"{sorted(malicious_ids)}"
+            ),
+        )
 
     response = requests.get(f"{SERVER}/evaluate")
     response.raise_for_status()

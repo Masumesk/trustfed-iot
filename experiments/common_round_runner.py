@@ -1,6 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor
 
 import requests
+import math
 
 from client_app.persistent_worker import run_client_round_task
 from config import (
@@ -35,6 +36,20 @@ def _item(label, value):
 
 def _format_accuracy(value):
     return f"{value:.4f} ({value * 100:.2f}%)"
+
+def _safe_float(value):
+    if value is None:
+        return None
+
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(value):
+        return None
+
+    return value
 
 
 def _start_round(server_url, malicious_ids, method_name):
@@ -148,34 +163,82 @@ def _validate(
     val_loss = None
     val_loss_change = None
 
-    # if relative_change < MODEL_CHANGE_THRESHOLD:
-    if round_id==1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
+    if round_id == 1 or round_id % EVAL_INTERVAL == 0 or round_id == 1000:
         print("\n[3/3] Validation started...")
 
-        response = requests.get(f"{server_url}/evaluate")
-        response.raise_for_status()
-        evaluation = response.json()
+        try:
+            response = requests.get(
+                f"{server_url}/evaluate",
+                timeout=300,
+            )
 
-        val_accuracy = float(evaluation["accuracy"])
-        val_loss = float(evaluation["loss"])
+            response.raise_for_status()
+            evaluation = response.json()
 
-        if previous_val_loss is not None:
-            val_loss_change = abs(val_loss - previous_val_loss)
+            val_accuracy = _safe_float(
+                evaluation.get("accuracy")
+            )
 
-            if val_loss_change < VAL_LOSS_CHANGE_THRESHOLD:
-                stable_checks += 1
+            val_loss = _safe_float(
+                evaluation.get("loss")
+            )
+
+            status = evaluation.get(
+                "status",
+                "ok",
+            )
+
+            if status != "ok":
+                print(
+                    f"[WARNING] Validation status: {status}"
+                )
+                
+            if val_loss is not None:
+
+                if previous_val_loss is not None:
+                    val_loss_change = abs(
+                        val_loss - previous_val_loss
+                    )
+
+                    if (
+                        val_loss_change
+                        < VAL_LOSS_CHANGE_THRESHOLD
+                    ):
+                        stable_checks += 1
+                    else:
+                        stable_checks = 0
+
+                previous_val_loss = val_loss
+
             else:
                 stable_checks = 0
+                previous_val_loss = None
 
-        previous_val_loss = val_loss
-        print("[3/3] Validation completed.")
+            print("[3/3] Validation completed.")
+
+        except (
+            requests.RequestException,
+            ValueError,
+            TypeError,
+        ) as exc:
+
+            print(
+                "[WARNING] Validation failed, "
+                "but training will continue."
+            )
+            print(
+                f"[WARNING] Reason: {exc}"
+            )
+
+            val_accuracy = None
+            val_loss = None
+            val_loss_change = None
+            stable_checks = 0
+            previous_val_loss = None
 
     else:
-        print(
-            "\n[3/3] Validation skipped "
-            f"(relative change {relative_change:.6f} >= "
-            f"threshold {MODEL_CHANGE_THRESHOLD:.6f})."
-        )
+        print("\n[3/3] Validation skipped.")
+
         stable_checks = 0
         previous_val_loss = None
 
@@ -189,7 +252,6 @@ def _validate(
         stable_checks,
         converged,
     )
-
 
 def _print_round_summary(
     method,
@@ -233,23 +295,35 @@ def _print_round_summary(
     )
 
     if val_accuracy is None:
-        _item("Validation Accuracy:", "SKIPPED")
-        _item("Validation Loss:", "SKIPPED")
-        _item("Validation loss change:", "N/A")
+        _item(
+            "Validation Accuracy:",
+            "N/A",
+        )
     else:
         _item(
             "Validation Accuracy:",
             _format_accuracy(val_accuracy),
         )
+
+    if val_loss is None:
+        _item(
+            "Validation Loss:",
+            "N/A",
+        )
+    else:
         _item(
             "Validation Loss:",
             f"{val_loss:.6f}",
         )
-        _item(
-            "Validation loss change:",
-            "N/A" if val_loss_change is None else f"{val_loss_change:.6f}",
-        )
 
+    _item(
+        "Validation loss change:",
+        (
+            "N/A"
+            if val_loss_change is None
+            else f"{val_loss_change:.6f}"
+        ),
+    )
     _item(
         "Stable checks:",
         f"{stable_checks}/{PATIENCE}",
@@ -411,9 +485,14 @@ def _print_experiment_summary(method_name, results):
             "Last validation accuracy:",
             _format_accuracy(last_evaluated["val_accuracy"]),
         )
+        last_val_loss = last_evaluated["val_loss"]
         _item(
             "Last validation loss:",
-            f"{last_evaluated['val_loss']:.6f}",
+            (
+                "N/A"
+                if last_val_loss is None
+                else f"{last_val_loss:.6f}"
+            ),
         )
     else:
         _item("Validation evaluations:", "NONE")
@@ -434,39 +513,110 @@ def _final_evaluation(
 ):
     _header(f"{method_name} | FINAL TEST EVALUATION")
 
-    response = requests.get(f"{server_url}/evaluate_final")
-    response.raise_for_status()
-    test_result = response.json()
+    test_accuracy = None
+    test_loss = None
+    macro_f1 = None
+    balanced_accuracy = None
+    worst_class_accuracy = None
 
-    test_accuracy = float(test_result["accuracy"])
-    test_loss = float(test_result["loss"])
+    try:
+        response = requests.get(
+            f"{server_url}/evaluate_final",
+            timeout=300,
+        )
+
+        response.raise_for_status()
+        test_result = response.json()
+
+        test_accuracy = _safe_float(
+            test_result.get("accuracy")
+        )
+
+        test_loss = _safe_float(
+            test_result.get("loss")
+        )
+
+        macro_f1 = _safe_float(
+            test_result.get("macro_f1")
+        )
+
+        balanced_accuracy = _safe_float(
+            test_result.get("balanced_accuracy")
+        )
+
+        worst_class_accuracy = _safe_float(
+            test_result.get("worst_class_accuracy")
+        )
+
+        status = test_result.get(
+            "status",
+            "ok",
+        )
+
+        if status != "ok":
+            print(
+                f"[WARNING] Final evaluation status: {status}"
+            )
+
+    except (
+        requests.RequestException,
+        ValueError,
+        TypeError,
+    ) as exc:
+
+        print(
+            "[WARNING] Final evaluation failed, "
+            "but experiment results will still be saved."
+        )
+
+        print(
+            f"[WARNING] Reason: {exc}"
+        )
 
     _item(
         "Test Accuracy:",
-        _format_accuracy(test_accuracy),
+        (
+            "N/A"
+            if test_accuracy is None
+            else _format_accuracy(test_accuracy)
+        ),
     )
+
     _item(
         "Test Loss:",
-        f"{test_loss:.6f}",
+        (
+            "N/A"
+            if test_loss is None
+            else f"{test_loss:.6f}"
+        ),
     )
 
-    if "macro_f1" in test_result:
-        _item(
-            "Macro F1:",
-            f"{test_result['macro_f1']:.4f}",
-        )
+    _item(
+        "Macro F1:",
+        (
+            "N/A"
+            if macro_f1 is None
+            else f"{macro_f1:.4f}"
+        ),
+    )
 
-    if "balanced_accuracy" in test_result:
-        _item(
-            "Balanced Accuracy:",
-            _format_accuracy(test_result["balanced_accuracy"]),
-        )
+    _item(
+        "Balanced Accuracy:",
+        (
+            "N/A"
+            if balanced_accuracy is None
+            else _format_accuracy(balanced_accuracy)
+        ),
+    )
 
-    if "worst_class_accuracy" in test_result:
-        _item(
-            "Worst-class Accuracy:",
-            _format_accuracy(test_result["worst_class_accuracy"]),
-        )
+    _item(
+        "Worst-class Accuracy:",
+        (
+            "N/A"
+            if worst_class_accuracy is None
+            else _format_accuracy(worst_class_accuracy)
+        ),
+    )
 
     save_round_to_csv(
         final_csv_path,
@@ -474,12 +624,11 @@ def _final_evaluation(
             "round": last_round,
             "test_accuracy": test_accuracy,
             "test_loss": test_loss,
-            "macro_f1": test_result.get("macro_f1"),
-            "balanced_accuracy": test_result.get("balanced_accuracy"),
-            "worst_class_accuracy": test_result.get("worst_class_accuracy"),
+            "macro_f1": macro_f1,
+            "balanced_accuracy": balanced_accuracy,
+            "worst_class_accuracy": worst_class_accuracy,
         },
     )
-
 
 def run_experiment(
     *,
