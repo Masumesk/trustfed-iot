@@ -19,10 +19,9 @@ SERVER_URL = _env_str("SERVER_URL", "http://127.0.0.1:8000")
 
 # Federated training
 NUM_CLIENTS = _env_int("NUM_CLIENTS", 100)
-PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.1) 
+PARTICIPATION_RATIO = _env_float("PARTICIPATION_RATIO", 0.1)
 NUM_ROUNDS = _env_int("NUM_ROUNDS", 1000)
 
-LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 2)
 BATCH_SIZE = _env_int("BATCH_SIZE", 64)
 CLIENT_WORKERS = _env_int("CLIENT_WORKERS", 1)
 
@@ -38,7 +37,7 @@ DATA_SEED = _env_int("DATA_SEED", 42)
 
 
 # Attack configuration
-ATTACK_TYPE = os.getenv("ATTACK_TYPE", None )
+ATTACK_TYPE = os.getenv("ATTACK_TYPE", None)
 MALICIOUS_RATIO = _env_float("MALICIOUS_RATIO", 0.2)
 MALICIOUS_SEED = _env_int("MALICIOUS_SEED", 42)
 
@@ -95,37 +94,45 @@ NOISE_ASSIGNMENT_THRESHOLD = _env_float("NOISE_ASSIGNMENT_THRESHOLD", 0.75)
 
 # Main / backup client selection
 SELECTION_ALPHA = _env_float("SELECTION_ALPHA", 0.85)
-BACKUP_RATIO = _env_float("BACKUP_RATIO", 0.5) 
+BACKUP_RATIO = _env_float("BACKUP_RATIO", 0.5)
 RANDOM_RATIO = _env_float("RANDOM_RATIO", 0.65)
 
 # Trust evaluation and suspicious-client handling
-MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 3) 
-T_NEAR = _env_float("T_NEAR", 0.85)
-LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
-TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.35) 
 INITIAL_TRUST = _env_float("INITIAL_TRUST", 0.5)
-SUSPICIOUS_PENALTY = _env_float("SUSPICIOUS_PENALTY", 0.3) ##
-
-# Robust aggregation
-TRIM_RATIO = _env_float("TRIM_RATIO", 0.1) 
+SUSPICIOUS_PENALTY = _env_float("SUSPICIOUS_PENALTY", 0.3)
 
 # Convergence
-VAL_LOSS_CHANGE_THRESHOLD = _env_float("VAL_LOSS_CHANGE_THRESHOLD", 0.0095)
 PATIENCE = _env_int("PATIENCE", 3)
 
 # Multi-Krum baseline
 MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 # Dataset-specific settings
-DATASET = "CIFAR10"
+DATASET = "MNIST"
 
 if DATASET == "MNIST":
     LEARNING_RATE = 0.01
     MODEL_CHANGE_THRESHOLD = 0.007
+    LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 2)
+
+    LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.8)
+    TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.35)
+    T_NEAR = _env_float("T_NEAR", 0.85)
+    TRIM_RATIO = _env_float("TRIM_RATIO", 0.1)
+    MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 3)
+    VAL_LOSS_CHANGE_THRESHOLD = _env_float("VAL_LOSS_CHANGE_THRESHOLD", 0.0095)
 
 elif DATASET == "CIFAR10":
     LEARNING_RATE = 0.01
     MODEL_CHANGE_THRESHOLD = 0.015
+    LOCAL_EPOCHS = _env_int("LOCAL_EPOCHS", 1)
+
+    LAMBDA_TRUST = _env_float("LAMBDA_TRUST", 0.55)
+    TRUST_THRESHOLD = _env_float("TRUST_THRESHOLD", 0.30)
+    T_NEAR = _env_float("T_NEAR", 0.85)
+    TRIM_RATIO = _env_float("TRIM_RATIO", 0.15)
+    MIN_REFERENCE_CLIENTS = _env_int("MIN_REFERENCE_CLIENTS", 5)
+    VAL_LOSS_CHANGE_THRESHOLD = _env_float("VAL_LOSS_CHANGE_THRESHOLD", 0.02)
 
 
 # evaluation
