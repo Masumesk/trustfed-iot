@@ -117,7 +117,7 @@ PATIENCE = _env_int("PATIENCE", 3)
 MULTI_KRUM_F = _env_int("MULTI_KRUM_F", 2)
 
 # Dataset-specific settings
-DATASET = "MNIST"
+DATASET = "CIFAR10"
 
 if DATASET == "MNIST":
     LEARNING_RATE = 0.01
